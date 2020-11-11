@@ -1,52 +1,48 @@
-﻿Microsoft Visual Studio Solution File, Format Version 12.00
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
-VisualStudioVersion = 16.0.30011.22
+VisualStudioVersion = 16.0.30709.132
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{a3a49cb2-5410-4864-ae47-b4efff688c85}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{A3A49CB2-5410-4864-AE47-B4EFFF688C85}"
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
 		.gitignore = .gitignore
+		ClcPlusRetransformer.sln.DotSettings = ClcPlusRetransformer.sln.DotSettings
 		Directory.Build.props = Directory.Build.props
 		Directory.Build.targets = Directory.Build.targets
 		README.md = README.md
-		ClcPlusRetransformer.sln.DotSettings = ClcPlusRetransformer.sln.DotSettings
 		stylecop.json = stylecop.json
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{0955CF60-B4B8-45FB-B7F3-4D56ED30E140}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClcPlusRetransformer", "src\ClcPlusRetransformer\ClcPlusRetransformer.csproj", "{4E3F3EAD-BC06-45DD-BBE4-90CA4855D78C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ClcPlusRetransformer.Cli", "src\ClcPlusRetransformer.Cli\ClcPlusRetransformer.Cli.csproj", "{5FD47C30-91D9-4742-89CC-97394916B1ED}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClcPlusRetransformer.Core", "src\ClcPlusRetransformer.Core\ClcPlusRetransformer.Core.csproj", "{4D11773F-9DDF-4FFB-BAB8-97AE9ECD4A07}"
 EndProject
 Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{5FD47C30-91D9-4742-89CC-97394916B1ED}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5FD47C30-91D9-4742-89CC-97394916B1ED}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5FD47C30-91D9-4742-89CC-97394916B1ED}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5FD47C30-91D9-4742-89CC-97394916B1ED}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4D11773F-9DDF-4FFB-BAB8-97AE9ECD4A07}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4D11773F-9DDF-4FFB-BAB8-97AE9ECD4A07}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4D11773F-9DDF-4FFB-BAB8-97AE9ECD4A07}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4D11773F-9DDF-4FFB-BAB8-97AE9ECD4A07}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{5FD47C30-91D9-4742-89CC-97394916B1ED} = {0955CF60-B4B8-45FB-B7F3-4D56ED30E140}
+		{4D11773F-9DDF-4FFB-BAB8-97AE9ECD4A07} = {0955CF60-B4B8-45FB-B7F3-4D56ED30E140}
+	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {4abd6e43-79aa-4a06-8743-03c19ce0b5b0}
-	EndGlobalSection
-	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug|Any CPU = Debug|Any CPU
-		Debug|x64 = Debug|x64
-		Debug|x86 = Debug|x86
-		Release|Any CPU = Release|Any CPU
-		Release|x64 = Release|x64
-		Release|x86 = Release|x86
-	EndGlobalSection
-	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{4E3F3EAD-BC06-45DD-BBE4-90CA4855D78C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{4E3F3EAD-BC06-45DD-BBE4-90CA4855D78C}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{4E3F3EAD-BC06-45DD-BBE4-90CA4855D78C}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{4E3F3EAD-BC06-45DD-BBE4-90CA4855D78C}.Debug|x64.Build.0 = Debug|Any CPU
-		{4E3F3EAD-BC06-45DD-BBE4-90CA4855D78C}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{4E3F3EAD-BC06-45DD-BBE4-90CA4855D78C}.Debug|x86.Build.0 = Debug|Any CPU
-		{4E3F3EAD-BC06-45DD-BBE4-90CA4855D78C}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{4E3F3EAD-BC06-45DD-BBE4-90CA4855D78C}.Release|Any CPU.Build.0 = Release|Any CPU
-		{4E3F3EAD-BC06-45DD-BBE4-90CA4855D78C}.Release|x64.ActiveCfg = Release|Any CPU
-		{4E3F3EAD-BC06-45DD-BBE4-90CA4855D78C}.Release|x64.Build.0 = Release|Any CPU
-		{4E3F3EAD-BC06-45DD-BBE4-90CA4855D78C}.Release|x86.ActiveCfg = Release|Any CPU
-		{4E3F3EAD-BC06-45DD-BBE4-90CA4855D78C}.Release|x86.Build.0 = Release|Any CPU
-	EndGlobalSection
-	GlobalSection(NestedProjects) = preSolution
-		{4E3F3EAD-BC06-45DD-BBE4-90CA4855D78C} = {0955CF60-B4B8-45FB-B7F3-4D56ED30E140}
 	EndGlobalSection
 EndGlobal
