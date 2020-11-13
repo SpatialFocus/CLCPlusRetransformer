@@ -4,13 +4,25 @@
 
 namespace ClcPlusRetransformer.Core
 {
+	using System;
 	using System.Collections.Generic;
+	using System.IO;
+	using System.Linq;
+	using Microsoft.Extensions.DependencyInjection;
 	using NetTopologySuite.Geometries;
 	using NetTopologySuite.IO;
 
 	public static class Shape
 	{
-		public static IEnumerable<TGeometryType> Load<TGeometryType>(string fileName) where TGeometryType : Geometry
+		public static IProcessor<TGeometryType> Load<TGeometryType>(this IServiceProvider serviceProvider, string fileName)
+			where TGeometryType : Geometry
+		{
+			ProcessorFactory factory = serviceProvider.GetRequiredService<ProcessorFactory>();
+			return factory.CreateProcessor<TGeometryType>("Load from file", Path.GetFileNameWithoutExtension(fileName),
+				() => Shape.Read<TGeometryType>(fileName).ToList());
+		}
+
+		public static IEnumerable<TGeometryType> Read<TGeometryType>(string fileName) where TGeometryType : Geometry
 		{
 			using ShapefileDataReader reader = new ShapefileDataReader(fileName, GeometryFactory.Fixed);
 

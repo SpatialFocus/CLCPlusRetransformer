@@ -30,7 +30,7 @@ namespace ClcPlusRetransformer.Core
 				{
 					foreach (Geometry geometryCollectionGeometry in geometryCollection.Geometries)
 					{
-						if (geometryCollectionGeometry is TGeometryType geometry2)
+						foreach (TGeometryType geometry2 in geometryCollectionGeometry.FlattenAndIgnore<TGeometryType>())
 						{
 							yield return geometry2;
 						}
@@ -77,6 +77,13 @@ namespace ClcPlusRetransformer.Core
 				default:
 					throw new InvalidOperationException($"Unexpected geometry type {geometry.GetType().Name}");
 			}
+		}
+
+		public static IProcessor<TGeometryType> Intersect<TGeometryType>(this IProcessor<TGeometryType> container,
+			Geometry otherGeometry) where TGeometryType : Geometry
+		{
+			// TODO: Compare .AsParallel with Parallel.ForEach
+			return container.Chain("Clip", (geometries) => geometries.AsParallel().SelectMany(geometry => geometry.Intersection(otherGeometry).FlattenAndIgnore<TGeometryType>()).ToList());
 		}
 
 		public static IEnumerable<TGeometryType> Intersect<TGeometryType>(this IEnumerable<TGeometryType> geometries,
