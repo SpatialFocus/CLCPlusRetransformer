@@ -38,6 +38,12 @@ namespace ClcPlusRetransformer.Core
 			return ProcessorFactory.CreateChainedProcessor(processorName, DataName, this, processorFunc);
 		}
 
+		public ChainedProcessor<TGeometryType, TNewGeometryType> Chain<TNewGeometryType>(string processorName,
+			Func<ICollection<TGeometryType>, ICollection<TNewGeometryType>> processorFunc) where TNewGeometryType : Geometry
+		{
+			return ProcessorFactory.CreateChainedProcessor(processorName, DataName, this, processorFunc);
+		}
+
 		public virtual ICollection<TGeometryType> Execute()
 		{
 			try

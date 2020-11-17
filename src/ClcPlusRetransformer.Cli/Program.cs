@@ -35,6 +35,8 @@ namespace ClcPlusRetransformer.Cli
 			string hardboneFileName = @"data\Hardbone_Polygons.shp";
 			string backboneFileName = @"data\Backbone_Polygons.shp";
 
+			string smoothingFileName = @"data\smoothing.shp";
+
 			(string fileName, Type geometryType)[] files =
 			{
 				(baselineFileName, typeof(LineString)), (hardboneFileName, typeof(Polygon)), (backboneFileName, typeof(Polygon))
@@ -43,13 +45,16 @@ namespace ClcPlusRetransformer.Cli
 			logger.LogInformation("Workflow started");
 			Stopwatch stopwatch = Stopwatch.StartNew();
 
-			Polygon otherGeometry = provider.Load<Polygon>(aoiFileName).Execute().Single();
+			ICollection<Polygon> collection = provider.Load<LineString>(smoothingFileName).LineStringsToPolygon().Execute();
+			collection.Save("result.shp");
 
-			(ICollection<LineString> lineStrings, ICollection<Polygon> hardbones, ICollection<Polygon> backbones) = await When.All(
-				Task.Run(() => provider.Load<LineString>(baselineFileName).Intersect(otherGeometry).Execute()),
-				Task.Run(() => provider.Load<Polygon>(hardboneFileName).Intersect(otherGeometry).Execute()),
-				Task.Run(() => provider.Load<Polygon>(backboneFileName).Intersect(otherGeometry).Execute()));
+			//Polygon otherGeometry = provider.Load<Polygon>(aoiFileName).Execute().Single();
 
+			//(ICollection<LineString> lineStrings, ICollection<Polygon> hardbones, ICollection<Polygon> backbones) = await When.All(
+			//	Task.Run(() => provider.Load<LineString>(baselineFileName).Intersect(otherGeometry).Execute()),
+			//	Task.Run(() => provider.Load<Polygon>(hardboneFileName).Intersect(otherGeometry).Execute()),
+			//	Task.Run(() => provider.Load<Polygon>(backboneFileName).Intersect(otherGeometry).Execute()));
+			 
 			stopwatch.Stop();
 			logger.LogInformation("Workflow finished in {Time}ms", stopwatch.ElapsedMilliseconds);
 		}

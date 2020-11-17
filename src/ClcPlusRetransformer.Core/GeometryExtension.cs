@@ -10,7 +10,7 @@ namespace ClcPlusRetransformer.Core
 	using NetTopologySuite.Geometries;
 	using NetTopologySuite.IO;
 
-	public static class GeometryExtension
+	public static partial class GeometryExtension
 	{
 		public static IEnumerable<TGeometryType> FlattenAndIgnore<TGeometryType>(this Geometry geometry)
 		{

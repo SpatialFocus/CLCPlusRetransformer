@@ -13,6 +13,9 @@ namespace ClcPlusRetransformer.Core
 		ChainedProcessor<TGeometryType, TGeometryType> Chain(string processorName,
 			Func<ICollection<TGeometryType>, ICollection<TGeometryType>> processorFunc);
 
+		ChainedProcessor<TGeometryType, TNewGeometryType> Chain<TNewGeometryType>(string processorName,
+			Func<ICollection<TGeometryType>, ICollection<TNewGeometryType>> processorFunc) where TNewGeometryType : Geometry;
+
 		public ICollection<TGeometryType> Execute();
 	}
 }
