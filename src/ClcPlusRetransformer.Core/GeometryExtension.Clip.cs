@@ -1,4 +1,4 @@
-﻿// <copyright file="GeometryExtension.Intersect.cs" company="Spatial Focus GmbH">
+﻿// <copyright file="GeometryExtension.Clip.cs" company="Spatial Focus GmbH">
 // Copyright (c) Spatial Focus GmbH. All rights reserved.
 // </copyright>
 
@@ -10,7 +10,7 @@ namespace ClcPlusRetransformer.Core
 
 	public static partial class GeometryExtension
 	{
-		public static IProcessor<TGeometryType> Intersect<TGeometryType>(this IProcessor<TGeometryType> container, Geometry otherGeometry)
+		public static IProcessor<TGeometryType> Clip<TGeometryType>(this IProcessor<TGeometryType> container, Geometry otherGeometry)
 			where TGeometryType : Geometry
 		{
 			if (container == null)
