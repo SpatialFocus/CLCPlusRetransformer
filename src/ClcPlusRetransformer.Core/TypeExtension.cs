@@ -17,7 +17,7 @@ namespace ClcPlusRetransformer.Core
 				return ShapeGeometryType.Point;
 			}
 
-			if (type == typeof(LineString))
+			if (type == typeof(LineString) || type == typeof(MultiLineString))
 			{
 				return ShapeGeometryType.LineString;
 			}

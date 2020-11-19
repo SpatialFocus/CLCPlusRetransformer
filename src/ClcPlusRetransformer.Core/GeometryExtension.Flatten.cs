@@ -1,4 +1,4 @@
-﻿// <copyright file="GeometryExtension.cs" company="Spatial Focus GmbH">
+﻿// <copyright file="GeometryExtension.Flatten.cs" company="Spatial Focus GmbH">
 // Copyright (c) Spatial Focus GmbH. All rights reserved.
 // </copyright>
 
@@ -6,9 +6,7 @@ namespace ClcPlusRetransformer.Core
 {
 	using System;
 	using System.Collections.Generic;
-	using System.Linq;
 	using NetTopologySuite.Geometries;
-	using NetTopologySuite.IO;
 
 	public static partial class GeometryExtension
 	{
@@ -59,7 +57,6 @@ namespace ClcPlusRetransformer.Core
 					break;
 
 				case GeometryCollection geometryCollection:
-				{
 					foreach (Geometry geometryCollectionGeometry in geometryCollection.Geometries)
 					{
 						if (geometryCollectionGeometry is TGeometryType geometry2)
@@ -73,32 +70,9 @@ namespace ClcPlusRetransformer.Core
 					}
 
 					break;
-				}
+
 				default:
 					throw new InvalidOperationException($"Unexpected geometry type {geometry.GetType().Name}");
-			}
-		}
-
-		public static IProcessor<TGeometryType> Intersect<TGeometryType>(this IProcessor<TGeometryType> container,
-			Geometry otherGeometry) where TGeometryType : Geometry
-		{
-			// TODO: Compare .AsParallel with Parallel.ForEach
-			return container.Chain("Clip", (geometries) => geometries.AsParallel().SelectMany(geometry => geometry.Intersection(otherGeometry).FlattenAndIgnore<TGeometryType>()).ToList());
-		}
-
-		public static IEnumerable<TGeometryType> Intersect<TGeometryType>(this IEnumerable<TGeometryType> geometries,
-			Geometry otherGeometry) where TGeometryType : Geometry
-		{
-			return geometries.SelectMany(geometry => geometry.Intersection(otherGeometry).FlattenAndIgnore<TGeometryType>());
-		}
-
-		public static void Save<TGeometryType>(this IEnumerable<TGeometryType> geometries, string fileName) where TGeometryType : Geometry
-		{
-			using ShapefileWriter writer = new ShapefileWriter(fileName, typeof(TGeometryType).ToShapeGeometryType());
-
-			foreach (TGeometryType geometry in geometries)
-			{
-				writer.Write(geometry);
 			}
 		}
 	}

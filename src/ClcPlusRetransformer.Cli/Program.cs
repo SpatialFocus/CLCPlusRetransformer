@@ -4,20 +4,18 @@
 
 namespace ClcPlusRetransformer.Cli
 {
-	using System;
-	using System.Collections.Generic;
 	using System.Diagnostics;
 	using System.Linq;
-	using System.Threading.Tasks;
 	using ClcPlusRetransformer.Core;
 	using Microsoft.Extensions.DependencyInjection;
 	using Microsoft.Extensions.Logging;
 	using NetTopologySuite.Geometries;
+	using NetTopologySuite.Operation.Buffer;
 	using Serilog;
 
-	internal class Program
+	public class Program
 	{
-		private static async Task Main(string[] args)
+		public static void Main()
 		{
 			ServiceCollection serviceCollection = new ServiceCollection();
 			serviceCollection.AddLogging(x => x.AddSerilog(new LoggerConfiguration().WriteTo.Console().CreateLogger()));
@@ -35,26 +33,31 @@ namespace ClcPlusRetransformer.Cli
 			string hardboneFileName = @"data\Hardbone_Polygons.shp";
 			string backboneFileName = @"data\Backbone_Polygons.shp";
 
-			string smoothingFileName = @"data\smoothing.shp";
-
-			(string fileName, Type geometryType)[] files =
-			{
-				(baselineFileName, typeof(LineString)), (hardboneFileName, typeof(Polygon)), (backboneFileName, typeof(Polygon))
-			};
+			////(string fileName, Type geometryType)[] files =
+			////{
+			////	(baselineFileName, typeof(LineString)), (hardboneFileName, typeof(Polygon)), (backboneFileName, typeof(Polygon)),
+			////};
 
 			logger.LogInformation("Workflow started");
 			Stopwatch stopwatch = Stopwatch.StartNew();
 
-			ICollection<Polygon> collection = provider.Load<LineString>(smoothingFileName).LineStringsToPolygon().Execute();
-			collection.Save("result.shp");
+			Polygon otherGeometry = (Polygon)provider.Load<Polygon>(aoiFileName)
+				.Execute()
+				.Single()
+				.Buffer(100, new BufferParameters(1, EndCapStyle.Round, JoinStyle.Round, 2));
 
-			//Polygon otherGeometry = provider.Load<Polygon>(aoiFileName).Execute().Single();
+			IProcessor<LineString> baselineProcessor = provider.Load<LineString>(baselineFileName).Intersect(otherGeometry);
+			IProcessor<LineString> hardboneProcessor =
+				provider.Load<Polygon>(hardboneFileName).Intersect(otherGeometry).PolygonsToLines().Dissolve();
+			IProcessor<LineString> backboneProcessor =
+				provider.Load<Polygon>(backboneFileName).Intersect(otherGeometry).PolygonsToLines().Dissolve();
 
-			//(ICollection<LineString> lineStrings, ICollection<Polygon> hardbones, ICollection<Polygon> backbones) = await When.All(
-			//	Task.Run(() => provider.Load<LineString>(baselineFileName).Intersect(otherGeometry).Execute()),
-			//	Task.Run(() => provider.Load<Polygon>(hardboneFileName).Intersect(otherGeometry).Execute()),
-			//	Task.Run(() => provider.Load<Polygon>(backboneFileName).Intersect(otherGeometry).Execute()));
-			 
+			IProcessor<LineString> difference = backboneProcessor.Difference(hardboneProcessor.Execute());
+
+			IProcessor<LineString> smoothedAndSnapped = difference.Dissolve().Smooth().SnapTo(baselineProcessor.Execute());
+
+			smoothedAndSnapped.Execute().Save(@"data\results\step2_snapped.shp");
+
 			stopwatch.Stop();
 			logger.LogInformation("Workflow finished in {Time}ms", stopwatch.ElapsedMilliseconds);
 		}

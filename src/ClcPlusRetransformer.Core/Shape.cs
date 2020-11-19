@@ -9,6 +9,7 @@ namespace ClcPlusRetransformer.Core
 	using System.IO;
 	using System.Linq;
 	using Microsoft.Extensions.DependencyInjection;
+	using NetTopologySuite.Features;
 	using NetTopologySuite.Geometries;
 	using NetTopologySuite.IO;
 
@@ -24,13 +25,42 @@ namespace ClcPlusRetransformer.Core
 
 		public static IEnumerable<TGeometryType> Read<TGeometryType>(string fileName) where TGeometryType : Geometry
 		{
-			using ShapefileDataReader reader = new ShapefileDataReader(fileName, GeometryFactory.Fixed);
+			using ShapefileDataReader reader = new ShapefileDataReader(fileName, GeometryFactory.Default);
 
 			while (reader.Read())
 			{
 				foreach (TGeometryType geometry in reader.Geometry.FlattenAndThrow<TGeometryType>())
 				{
 					yield return geometry;
+				}
+			}
+		}
+
+		public static IEnumerable<IFeature> ReadFeatures<TGeometryType>(string fileName) where TGeometryType : Geometry
+		{
+			using ShapefileDataReader reader = new ShapefileDataReader(fileName, GeometryFactory.Default);
+			DbaseFileHeader header = reader.DbaseHeader;
+
+			while (reader.Read())
+			{
+				AttributesTable attributesTable = new AttributesTable();
+
+				for (int i = 0; i < header.NumFields; i++)
+				{
+					DbaseFieldDescriptor fldDescriptor = header.Fields[i];
+
+					attributesTable.Add(fldDescriptor.Name, reader.GetValue(i + 1));
+				}
+
+				foreach (TGeometryType geometry in reader.Geometry.FlattenAndThrow<TGeometryType>())
+				{
+					Feature feature = new Feature
+					{
+						Attributes = attributesTable,
+						Geometry = geometry,
+					};
+
+					yield return feature;
 				}
 			}
 		}
