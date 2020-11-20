@@ -23,10 +23,15 @@ namespace ClcPlusRetransformer.Cli
 			IConfigurationRoot config = builder.Build();
 
 			ServiceCollection serviceCollection = new ServiceCollection();
-			serviceCollection.AddLogging(loggingBuilder =>
-			{
-				loggingBuilder.AddSerilog(new LoggerConfiguration().ReadFrom.Configuration(config.GetSection("Logging")).CreateLogger());
-			});
+			serviceCollection.AddLogging(x => x.AddSerilog(new LoggerConfiguration().WriteTo.Console().CreateLogger()));
+
+			// Logging should be configured in appsettings. Cannot publish single file unless this is resolved:
+			// https://github.com/serilog/serilog-settings-configuration/issues/239
+			////serviceCollection.AddLogging(loggingBuilder =>
+			////{
+			////	loggingBuilder.AddSerilog(new LoggerConfiguration().ReadFrom.Configuration(config.GetSection("Logging")).CreateLogger());
+			////});
+
 			serviceCollection.AddTransient(typeof(Processor<>));
 			serviceCollection.AddTransient(typeof(ChainedProcessor<,>));
 			serviceCollection.AddTransient<ProcessorFactory>();
