@@ -25,15 +25,20 @@ namespace ClcPlusRetransformer.Core
 
 		public static IEnumerable<TGeometryType> Read<TGeometryType>(string fileName) where TGeometryType : Geometry
 		{
-			using ShapefileDataReader reader = new ShapefileDataReader(fileName, GeometryFactory.Default);
+			ShapefileReader reader = new ShapefileReader(fileName, GeometryFactory.Default);
 
-			while (reader.Read())
+			foreach (TGeometryType geometry in reader.ReadAll().FlattenAndThrow<TGeometryType>())
 			{
-				foreach (TGeometryType geometry in reader.Geometry.FlattenAndThrow<TGeometryType>())
-				{
-					yield return geometry;
-				}
+				yield return geometry;
 			}
+
+			//while (reader.Read())
+			//{
+			//	foreach (TGeometryType geometry in reader.Geometry.FlattenAndThrow<TGeometryType>())
+			//	{
+			//		yield return geometry;
+			//	}
+			//}
 		}
 
 		public static IEnumerable<IFeature> ReadFeatures<TGeometryType>(string fileName) where TGeometryType : Geometry

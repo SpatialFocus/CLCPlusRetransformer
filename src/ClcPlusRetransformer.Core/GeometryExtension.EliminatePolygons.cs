@@ -8,6 +8,8 @@ namespace ClcPlusRetransformer.Core
 	using System.Collections.Generic;
 	using System.Linq;
 	using NetTopologySuite.Geometries;
+	using NetTopologySuite.Index;
+	using NetTopologySuite.Index.Quadtree;
 
 	public static partial class GeometryExtension
 	{
@@ -29,34 +31,51 @@ namespace ClcPlusRetransformer.Core
 				throw new ArgumentNullException(nameof(polygons));
 			}
 
-			IDictionary<Polygon, ICollection<Polygon>> findGeometriesToEliminate = GeometryExtension.GetGeometriesToEliminate(polygons);
+			Quadtree<Polygon> index = new Quadtree<Polygon>();
+			List<Polygon> polygonsToEliminateList = new List<Polygon>();
 
-			while (findGeometriesToEliminate.Keys.Any())
+			foreach (Polygon polygon in polygons)
 			{
-				List<Polygon> untouchedPolygons = polygons.Where(x => !findGeometriesToEliminate.Keys.Contains(x)).ToList();
-
-				List<Polygon> mergedPolygons = findGeometriesToEliminate.Select(x => x.Key.Union(new MultiPolygon(x.Value.ToArray())))
-					.Cast<Polygon>()
-					.ToList();
-
-				polygons = untouchedPolygons.Union(mergedPolygons).ToList();
-
-				findGeometriesToEliminate = GeometryExtension.GetGeometriesToEliminate(polygons);
+				if (polygon.Area <= 5000)
+				{
+					polygonsToEliminateList.Add(polygon);
+				}
+				else
+				{
+					index.Insert(polygon.EnvelopeInternal, polygon);
+				}
 			}
 
-			return polygons;
+			IDictionary<Polygon, ICollection<Polygon>> eliminatePairs = GeometryExtension.GetEliminatePairs(polygonsToEliminateList, index);
+
+			while (eliminatePairs.Keys.Any())
+			{
+				foreach ((Polygon motherPolygon, ICollection<Polygon> polygonsToEliminate) in eliminatePairs)
+				{
+					foreach (Polygon polygonToEliminate in polygonsToEliminate)
+					{
+						polygonsToEliminateList.Remove(polygonToEliminate);
+					}
+
+					Polygon mergedPolygon = (Polygon)motherPolygon.Union(new MultiPolygon(polygonsToEliminate.ToArray()));
+					index.Remove(motherPolygon.EnvelopeInternal, motherPolygon);
+					index.Insert(mergedPolygon.EnvelopeInternal, mergedPolygon);
+				}
+
+				eliminatePairs = GeometryExtension.GetEliminatePairs(polygonsToEliminateList, index);
+			}
+
+			return index.QueryAll().Select(x => x.Copy()).Cast<Polygon>().Union(polygonsToEliminateList.Select(x => x.Copy()).Cast<Polygon>()).ToList();
 		}
 
-		private static IDictionary<Polygon, ICollection<Polygon>> GetGeometriesToEliminate(ICollection<Polygon> geometries)
+		private static IDictionary<Polygon, ICollection<Polygon>> GetEliminatePairs(ICollection<Polygon> geometriesToEliminate, ISpatialIndex<Polygon> index)
 		{
 			IDictionary<Polygon, ICollection<Polygon>> results = new Dictionary<Polygon, ICollection<Polygon>>();
 
-			List<Polygon> geometriesToEliminate = geometries.Where(x => x.Area < 5000).ToList();
-
 			foreach (Polygon geometryToEliminate in geometriesToEliminate)
 			{
-				List<Polygon> candidates = geometries
-					.Where(result => !geometriesToEliminate.Contains(result) && result.Touches(geometryToEliminate))
+				List<Polygon> candidates = index.Query(geometryToEliminate.EnvelopeInternal)
+					.Where(result => result.Touches(geometryToEliminate))
 					.ToList();
 
 				if (!candidates.Any())

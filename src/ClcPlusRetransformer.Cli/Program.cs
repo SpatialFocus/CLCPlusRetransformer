@@ -6,19 +6,27 @@ namespace ClcPlusRetransformer.Cli
 {
 	using System.Diagnostics;
 	using System.Linq;
+	using System.Threading.Tasks;
 	using ClcPlusRetransformer.Core;
+	using Microsoft.Extensions.Configuration;
 	using Microsoft.Extensions.DependencyInjection;
 	using Microsoft.Extensions.Logging;
 	using NetTopologySuite.Geometries;
-	using NetTopologySuite.Operation.Buffer;
 	using Serilog;
 
 	public sealed class Program
 	{
 		public static void Main()
 		{
+			IConfigurationBuilder builder = new ConfigurationBuilder().AddJsonFile("appsettings.json");
+
+			IConfigurationRoot config = builder.Build();
+
 			ServiceCollection serviceCollection = new ServiceCollection();
-			serviceCollection.AddLogging(x => x.AddSerilog(new LoggerConfiguration().WriteTo.Console().CreateLogger()));
+			serviceCollection.AddLogging(loggingBuilder =>
+			{
+				loggingBuilder.AddSerilog(new LoggerConfiguration().ReadFrom.Configuration(config.GetSection("Logging")).CreateLogger());
+			});
 			serviceCollection.AddTransient(typeof(Processor<>));
 			serviceCollection.AddTransient(typeof(ChainedProcessor<,>));
 			serviceCollection.AddTransient<ProcessorFactory>();
@@ -27,11 +35,11 @@ namespace ClcPlusRetransformer.Cli
 
 			ILogger<Program> logger = provider.GetRequiredService<ILogger<Program>>();
 
-			string aoiFileName = @"data\AOI_10k.shp";
+			string aoiFileName = config["AoiFileName"];
 
-			string baselineFileName = @"data\Hardbone_Baseline.shp";
-			string hardboneFileName = @"data\Hardbone_Polygons.shp";
-			string backboneFileName = @"data\Backbone_Polygons.shp";
+			string baselineFileName = config["BaselineFileName"];
+			string hardboneFileName = config["HardboneFileName"];
+			string backboneFileName = config["BackboneFileName"];
 
 			////(string fileName, Type geometryType)[] files =
 			////{
@@ -41,20 +49,41 @@ namespace ClcPlusRetransformer.Cli
 			logger.LogInformation("Workflow started");
 			Stopwatch stopwatch = Stopwatch.StartNew();
 
-			Polygon aoi = (Polygon)provider.Load<Polygon>(aoiFileName)
+			IProcessor<Polygon> aoiProcessor = provider.Load<Polygon>(aoiFileName);
+			IProcessor<Polygon> aoiProcessorBuffered = aoiProcessor.Buffer(100);
+
+			Polygon aoi = aoiProcessor.Execute().Single();
+			Polygon bufferedAoi = aoiProcessorBuffered.Execute().Single();
+
+			IProcessor<LineString> baselineProcessor = provider.Load<LineString>(baselineFileName).Clip(bufferedAoi);
+			IProcessor<LineString> hardboneProcessor =
+				provider.Load<Polygon>(hardboneFileName).Clip(bufferedAoi).PolygonsToLines().Dissolve();
+			IProcessor<LineString> backboneProcessor =
+				provider.Load<Polygon>(backboneFileName).Clip(bufferedAoi).PolygonsToLines().Dissolve();
+
+			Task.Run(() => baselineProcessor.Execute());
+			Task.Run(() => hardboneProcessor.Execute());
+			Task.Run(() => backboneProcessor.Execute());
+
+			IProcessor<LineString> difference = backboneProcessor.Difference(hardboneProcessor.Execute()).Union().Dissolve();
+
+			IProcessor<LineString> smoothed = difference.Smooth();
+
+			////smoothed.Execute().Save(@"data/results/new_smoothed.shp");
+
+			////smoothed.Dissolve().Execute().Save(@"data/results/old_smoothed_dissolved.shp");
+
+			IProcessor<LineString> smoothedAndSnapped = smoothed.SnapTo(baselineProcessor.Execute());
+
+			////smoothedAndSnapped.Execute().Save(@"data/results/new_with_old_snapped.shp");
+
+			smoothedAndSnapped.Merge(baselineProcessor.Execute())
+				.Merge(aoiProcessor.PolygonsToLines().Execute())
+				.Polygonize()
+				.EliminatePolygons()
+				.Clip(aoi)
 				.Execute()
-				.Single()
-				.Buffer(100, new BufferParameters(1, EndCapStyle.Round, JoinStyle.Round, 2));
-
-			IProcessor<LineString> baselineProcessor = provider.Load<LineString>(baselineFileName).Clip(aoi);
-			IProcessor<LineString> hardboneProcessor = provider.Load<Polygon>(hardboneFileName).Clip(aoi).PolygonsToLines().Dissolve();
-			IProcessor<LineString> backboneProcessor = provider.Load<Polygon>(backboneFileName).Clip(aoi).PolygonsToLines().Dissolve();
-
-			IProcessor<LineString> difference = backboneProcessor.Difference(hardboneProcessor.Execute());
-
-			IProcessor<LineString> smoothedAndSnapped = difference.Dissolve().Smooth().SnapTo(baselineProcessor.Execute());
-
-			smoothedAndSnapped.Merge(baselineProcessor.Execute()).Execute().Save(@"data\results\step2_snapped_merged.shp");
+				.Save(config["OutputFileName"]);
 
 			stopwatch.Stop();
 			logger.LogInformation("Workflow finished in {Time}ms", stopwatch.ElapsedMilliseconds);

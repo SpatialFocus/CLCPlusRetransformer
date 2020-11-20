@@ -52,7 +52,7 @@ namespace ClcPlusRetransformer.Core
 				////output.Add(r);
 			}
 
-			output.Add(addFirstAndLastPoint ? new Coordinate(input[input.Length - 1]) : output.First().Copy());
+			output.Add(addFirstAndLastPoint ? new Coordinate(input[^1]) : output.First().Copy());
 
 			return new LineString(output.ToArray());
 		}

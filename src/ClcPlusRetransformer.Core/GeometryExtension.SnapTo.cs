@@ -12,6 +12,27 @@ namespace ClcPlusRetransformer.Core
 	using NetTopologySuite.Index.Strtree;
 	using NetTopologySuite.Operation.Distance;
 
+	public class PointWithLine : Point
+	{
+		public PointWithLine(Coordinate coordinate) : base(coordinate)
+		{
+		}
+
+		public PointWithLine(CoordinateSequence coordinates, GeometryFactory factory) : base(coordinates, factory)
+		{
+		}
+
+		public PointWithLine(double x, double y, double z) : base(x, y, z)
+		{
+		}
+
+		public PointWithLine(double x, double y) : base(x, y)
+		{
+		}
+
+		public LineString LineString { get; set; }
+	}
+
 	public static partial class GeometryExtension
 	{
 		public static IProcessor<LineString> SnapTo(this IProcessor<LineString> source, ICollection<LineString> target)
@@ -23,23 +44,26 @@ namespace ClcPlusRetransformer.Core
 
 			return source.Chain<LineString>("SnapTo", (geometries) =>
 			{
-				GeometryCollection targetGeometryCollection = new GeometryCollection(target.Cast<Geometry>().ToArray());
-
 				ICollection<LineString> lineStrings = source.Execute().Select(x => x.Copy()).Cast<LineString>().ToList();
 
 				STRtree<Point> tree = new STRtree<Point>();
 
-				foreach (Coordinate coordinate in target.SelectMany(x => x.Coordinates))
+				foreach (LineString lineString in GeometryExtension.Explode(target))
 				{
-					tree.Insert(new Envelope(coordinate), new Point(coordinate));
+					foreach (Coordinate coordinate in lineString.Coordinates)
+					{
+						tree.Insert(lineString.EnvelopeInternal, new PointWithLine(coordinate)
+						{
+							LineString = lineString,
+						});
+					}
 				}
 
 				PointItemDistance pointItemDistance = new PointItemDistance();
 
 				Parallel.ForEach(lineStrings, (lineString) =>
 				{
-					Coordinate startCoordinate = GeometryExtension.FindNearestVertexOrPoint(lineString.StartPoint, tree, pointItemDistance,
-						targetGeometryCollection);
+					Coordinate startCoordinate = GeometryExtension.FindNearestVertexOrPoint(lineString.StartPoint, tree, pointItemDistance);
 
 					if (startCoordinate != null)
 					{
@@ -47,7 +71,7 @@ namespace ClcPlusRetransformer.Core
 					}
 
 					Coordinate endCoordinate =
-						GeometryExtension.FindNearestVertexOrPoint(lineString.EndPoint, tree, pointItemDistance, targetGeometryCollection);
+						GeometryExtension.FindNearestVertexOrPoint(lineString.EndPoint, tree, pointItemDistance);
 
 					if (endCoordinate != null)
 					{
@@ -59,8 +83,18 @@ namespace ClcPlusRetransformer.Core
 			});
 		}
 
-		private static Coordinate FindNearestVertexOrPoint(Point point, STRtree<Point> tree, PointItemDistance pointItemDistance,
-			GeometryCollection targetGeometryCollection)
+		public static IEnumerable<LineString> Explode(IEnumerable<LineString> lineString)
+		{
+			foreach (LineString s in lineString)
+			{
+				for (int i = 0; i < s.NumPoints - 1; i++)
+				{
+					yield return new LineString(new[] { s[i], s[i + 1] });
+				}
+			}
+		}
+
+		private static Coordinate FindNearestVertexOrPoint(Point point, STRtree<Point> tree, PointItemDistance pointItemDistance)
 		{
 			Envelope envelope = new Envelope(point.Coordinate);
 			envelope.ExpandBy(20);
@@ -73,10 +107,14 @@ namespace ClcPlusRetransformer.Core
 				return vertex.Coordinate;
 			}
 
-			// ... fallback to a nearest point on lineStringCollection
-			DistanceOp distanceOperation = new DistanceOp(point, targetGeometryCollection);
+			// ... fallback to the nearest point on all lineStringCollection
+			DistanceOp distanceOperation = tree.Query(envelope)
+				.Cast<PointWithLine>()
+				.Distinct()
+				.Select(x => new DistanceOp(point, x.LineString))
+				.OrderBy(distanceOp => distanceOp.Distance()).FirstOrDefault();
 
-			if (distanceOperation.Distance() <= 20)
+			if (distanceOperation?.Distance() <= 20)
 			{
 				return distanceOperation.NearestPoints()[1];
 			}

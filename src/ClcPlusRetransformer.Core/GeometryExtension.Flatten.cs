@@ -57,19 +57,17 @@ namespace ClcPlusRetransformer.Core
 					break;
 
 				case GeometryCollection geometryCollection:
+				{
 					foreach (Geometry geometryCollectionGeometry in geometryCollection.Geometries)
 					{
-						if (geometryCollectionGeometry is TGeometryType geometry2)
+						foreach (TGeometryType geometry2 in geometryCollectionGeometry.FlattenAndThrow<TGeometryType>())
 						{
 							yield return geometry2;
-						}
-						else
-						{
-							throw new InvalidOperationException($"Unexpected geometry type {geometry.GetType().Name}");
 						}
 					}
 
 					break;
+				}
 
 				default:
 					throw new InvalidOperationException($"Unexpected geometry type {geometry.GetType().Name}");
