@@ -1,4 +1,4 @@
-﻿// <copyright file="Program.cs" company="Spatial Focus GmbH">
+// <copyright file="Program.cs" company="Spatial Focus GmbH">
 // Copyright (c) Spatial Focus GmbH. All rights reserved.
 // </copyright>
 
@@ -46,11 +46,6 @@ namespace ClcPlusRetransformer.Cli
 			string hardboneFileName = config["HardboneFileName"];
 			string backboneFileName = config["BackboneFileName"];
 
-			////(string fileName, Type geometryType)[] files =
-			////{
-			////	(baselineFileName, typeof(LineString)), (hardboneFileName, typeof(Polygon)), (backboneFileName, typeof(Polygon)),
-			////};
-
 			logger.LogInformation("Workflow started");
 			Stopwatch stopwatch = Stopwatch.StartNew();
 
@@ -66,29 +61,23 @@ namespace ClcPlusRetransformer.Cli
 			IProcessor<LineString> backboneProcessor =
 				provider.Load<Polygon>(backboneFileName).Clip(bufferedAoi).PolygonsToLines().Dissolve();
 
+			Task.Run(() => aoiProcessorBuffered.PolygonsToLines().Execute());
 			Task.Run(() => baselineProcessor.Execute());
 			Task.Run(() => hardboneProcessor.Execute());
 			Task.Run(() => backboneProcessor.Execute());
 
-			IProcessor<LineString> difference = backboneProcessor.Difference(hardboneProcessor.Execute()).Union().Dissolve();
+			IProcessor<LineString> difference = backboneProcessor.Difference(hardboneProcessor.Execute()).Dissolve().Union().Dissolve();
 
 			IProcessor<LineString> smoothed = difference.Smooth();
-
-			////smoothed.Execute().Save(@"data/results/new_smoothed.shp");
-
-			////smoothed.Dissolve().Execute().Save(@"data/results/old_smoothed_dissolved.shp");
-
 			IProcessor<LineString> smoothedAndSnapped = smoothed.SnapTo(baselineProcessor.Execute());
 
-			////smoothedAndSnapped.Execute().Save(@"data/results/new_with_old_snapped.shp");
+			IProcessor<Polygon> polygonized = smoothedAndSnapped.Merge(baselineProcessor.Execute())
+				.Merge(aoiProcessorBuffered.PolygonsToLines().Execute())
+				.Polygonize();
 
-			smoothedAndSnapped.Merge(baselineProcessor.Execute())
-				.Merge(aoiProcessor.PolygonsToLines().Execute())
-				.Polygonize()
-				.EliminatePolygons()
-				.Clip(aoi)
-				.Execute()
-				.Save(config["OutputFileName"]);
+			IProcessor<Polygon> cleanedAndClippedToAoi = polygonized.EliminatePolygons().Clip(aoi);
+
+			cleanedAndClippedToAoi.Execute().Save(config["OutputFileName"]);
 
 			stopwatch.Stop();
 			logger.LogInformation("Workflow finished in {Time}ms", stopwatch.ElapsedMilliseconds);
