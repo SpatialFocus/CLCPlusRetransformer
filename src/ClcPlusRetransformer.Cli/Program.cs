@@ -1,9 +1,10 @@
-// <copyright file="Program.cs" company="Spatial Focus GmbH">
+﻿// <copyright file="Program.cs" company="Spatial Focus GmbH">
 // Copyright (c) Spatial Focus GmbH. All rights reserved.
 // </copyright>
 
 namespace ClcPlusRetransformer.Cli
 {
+	using System;
 	using System.Diagnostics;
 	using System.Linq;
 	using System.Threading.Tasks;
@@ -18,7 +19,7 @@ namespace ClcPlusRetransformer.Cli
 
 	public sealed class Program
 	{
-		public static void Main()
+		public static async Task Main()
 		{
 			IConfigurationBuilder builder = new ConfigurationBuilder().AddJsonFile("appsettings.json");
 
@@ -61,20 +62,52 @@ namespace ClcPlusRetransformer.Cli
 
 			IProcessor<LineString> baselineProcessor =
 				provider.LoadFromFileAndClip<LineString>(baselineFileName, precisionModel, bufferedAoi);
-			IProcessor<LineString> hardboneProcessor = provider.LoadFromFileAndClip<Polygon>(hardboneFileName, precisionModel, bufferedAoi)
-				.PolygonsToLines()
-				.Dissolve();
-			IProcessor<LineString> backboneProcessor = provider.LoadFromFileAndClip<Polygon>(backboneFileName, precisionModel, bufferedAoi)
-				.PolygonsToLines()
+
+			IProcessor<Polygon> hardboneProcessor = provider.LoadFromFileAndClip<Polygon>(hardboneFileName, precisionModel, bufferedAoi);
+			IProcessor<Polygon> backboneProcessor = provider.LoadFromFileAndClip<Polygon>(backboneFileName, precisionModel, bufferedAoi);
+
+			Task task1 = Task.Run(() => aoiProcessorBuffered.PolygonsToLines().Execute());
+			Task task2 = Task.Run(() => baselineProcessor.Execute());
+			Task task3 = Task.Run(() =>
+			{
+				try
+				{
+					hardboneProcessor.Execute();
+				}
+				catch (Exception e)
+				{
+					logger.LogWarning("Loading and intersecting hardbones failed, falling back to Buffer(0)");
+
+					hardboneProcessor = provider.LoadFromFile<Polygon>(hardboneFileName, precisionModel).Buffer(0).Clip(bufferedAoi);
+					hardboneProcessor.Execute();
+				}
+			});
+
+			Task task4 = Task.Run(() =>
+			{
+				try
+				{
+					backboneProcessor.Execute();
+				}
+				catch (Exception e)
+				{
+					logger.LogWarning("Loading and intersecting backbones failed, falling back to Buffer(0)");
+
+					backboneProcessor = provider.LoadFromFile<Polygon>(backboneFileName, precisionModel).Buffer(0).Clip(bufferedAoi);
+					backboneProcessor.Execute();
+				}
+			});
+
+			await Task.WhenAll(task1, task2, task3, task4).ConfigureAwait(true);
+
+			IProcessor<LineString> hardboneProcessorLines = hardboneProcessor.PolygonsToLines()
 				.Dissolve();
 
-			Task.Run(() => aoiProcessorBuffered.PolygonsToLines().Execute());
-			Task.Run(() => baselineProcessor.Execute());
-			Task.Run(() => hardboneProcessor.Execute());
-			Task.Run(() => backboneProcessor.Execute());
+			IProcessor<LineString> backboneProcessorLines = backboneProcessor.PolygonsToLines()
+				.Dissolve();
 
-			IProcessor<LineString> difference = backboneProcessor
-				.Difference(hardboneProcessor.Execute(), provider.GetRequiredService<ILogger<Processor>>())
+			IProcessor<LineString> difference = backboneProcessorLines
+				.Difference(hardboneProcessorLines.Execute(), provider.GetRequiredService<ILogger<Processor>>())
 				.Union(provider.GetRequiredService<ILogger<Processor>>())
 				.Dissolve();
 
