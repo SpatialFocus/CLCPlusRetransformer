@@ -2,7 +2,7 @@
 // Copyright (c) Spatial Focus GmbH. All rights reserved.
 // </copyright>
 
-namespace ClcPlusRetransformer.Core
+namespace ClcPlusRetransformer.Core.Processors
 {
 	public class Processor
 	{

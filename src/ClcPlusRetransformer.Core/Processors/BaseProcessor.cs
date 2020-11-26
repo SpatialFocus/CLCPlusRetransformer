@@ -2,7 +2,7 @@
 // Copyright (c) Spatial Focus GmbH. All rights reserved.
 // </copyright>
 
-namespace ClcPlusRetransformer.Core
+namespace ClcPlusRetransformer.Core.Processors
 {
 	using System;
 	using System.Collections.Generic;
@@ -14,7 +14,7 @@ namespace ClcPlusRetransformer.Core
 	{
 		private ICollection<TGeometryType> geometries;
 
-		public BaseProcessor(string processorName, string dataName, ProcessorFactory processorFactory, ILogger<Processor> logger)
+		protected BaseProcessor(string processorName, string dataName, ProcessorFactory processorFactory, ILogger<Processor> logger)
 		{
 			ProcessorName = processorName;
 			DataName = dataName;

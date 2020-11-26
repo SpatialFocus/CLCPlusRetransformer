@@ -2,7 +2,7 @@
 // Copyright (c) Spatial Focus GmbH. All rights reserved.
 // </copyright>
 
-namespace ClcPlusRetransformer.Core
+namespace ClcPlusRetransformer.Core.Processors
 {
 	using System;
 	using System.Collections.Generic;
@@ -10,6 +10,10 @@ namespace ClcPlusRetransformer.Core
 
 	public interface IProcessor<TGeometryType> where TGeometryType : Geometry
 	{
+		public string DataName { get; }
+
+		public string ProcessorName { get; }
+
 		ChainedProcessor<TGeometryType, TGeometryType> Chain(string processorName,
 			Func<ICollection<TGeometryType>, ICollection<TGeometryType>> processorFunc);
 

@@ -8,6 +8,8 @@ namespace ClcPlusRetransformer.Cli
 	using System.Linq;
 	using System.Threading.Tasks;
 	using ClcPlusRetransformer.Core;
+	using ClcPlusRetransformer.Core.Processors;
+	using ClcPlusRetransformer.Core.Processors.Extension;
 	using Microsoft.Extensions.Configuration;
 	using Microsoft.Extensions.DependencyInjection;
 	using Microsoft.Extensions.Logging;
@@ -23,7 +25,8 @@ namespace ClcPlusRetransformer.Cli
 			IConfigurationRoot config = builder.Build();
 
 			ServiceCollection serviceCollection = new ServiceCollection();
-			serviceCollection.AddLogging(x => x.AddSerilog(new LoggerConfiguration().WriteTo.Console().CreateLogger()));
+			serviceCollection.AddLogging(x =>
+				x.AddSerilog(new LoggerConfiguration().MinimumLevel.Debug().WriteTo.Console().CreateLogger()));
 
 			// Logging should be configured in appsettings. Cannot publish single file unless this is resolved:
 			// https://github.com/serilog/serilog-settings-configuration/issues/239
@@ -37,8 +40,9 @@ namespace ClcPlusRetransformer.Cli
 			serviceCollection.AddTransient<ProcessorFactory>();
 
 			ServiceProvider provider = serviceCollection.BuildServiceProvider();
-
 			ILogger<Program> logger = provider.GetRequiredService<ILogger<Program>>();
+
+			PrecisionModel precisionModel = new PrecisionModel(PrecisionModels.Floating);
 
 			string aoiFileName = config["AoiFileName"];
 
@@ -49,30 +53,39 @@ namespace ClcPlusRetransformer.Cli
 			logger.LogInformation("Workflow started");
 			Stopwatch stopwatch = Stopwatch.StartNew();
 
-			IProcessor<Polygon> aoiProcessor = provider.Load<Polygon>(aoiFileName);
+			IProcessor<Polygon> aoiProcessor = provider.LoadFromFile<Polygon>(aoiFileName, precisionModel);
 			IProcessor<Polygon> aoiProcessorBuffered = aoiProcessor.Buffer(100);
 
 			Polygon aoi = aoiProcessor.Execute().Single();
 			Polygon bufferedAoi = aoiProcessorBuffered.Execute().Single();
 
-			IProcessor<LineString> baselineProcessor = provider.Load<LineString>(baselineFileName).Clip(bufferedAoi);
-			IProcessor<LineString> hardboneProcessor =
-				provider.Load<Polygon>(hardboneFileName).Clip(bufferedAoi).PolygonsToLines().Dissolve();
-			IProcessor<LineString> backboneProcessor =
-				provider.Load<Polygon>(backboneFileName).Clip(bufferedAoi).PolygonsToLines().Dissolve();
+			IProcessor<LineString> baselineProcessor =
+				provider.LoadFromFileAndClip<LineString>(baselineFileName, precisionModel, bufferedAoi);
+			IProcessor<LineString> hardboneProcessor = provider.LoadFromFileAndClip<Polygon>(hardboneFileName, precisionModel, bufferedAoi)
+				.PolygonsToLines()
+				.Dissolve();
+			IProcessor<LineString> backboneProcessor = provider.LoadFromFileAndClip<Polygon>(backboneFileName, precisionModel, bufferedAoi)
+				.PolygonsToLines()
+				.Dissolve();
 
 			Task.Run(() => aoiProcessorBuffered.PolygonsToLines().Execute());
 			Task.Run(() => baselineProcessor.Execute());
 			Task.Run(() => hardboneProcessor.Execute());
 			Task.Run(() => backboneProcessor.Execute());
 
-			IProcessor<LineString> difference = backboneProcessor.Difference(hardboneProcessor.Execute()).Dissolve().Union().Dissolve();
+			IProcessor<LineString> difference = backboneProcessor
+				.Difference(hardboneProcessor.Execute(), provider.GetRequiredService<ILogger<Processor>>())
+				.Union(provider.GetRequiredService<ILogger<Processor>>())
+				.Dissolve();
 
 			IProcessor<LineString> smoothed = difference.Smooth();
 			IProcessor<LineString> smoothedAndSnapped = smoothed.SnapTo(baselineProcessor.Execute());
 
 			IProcessor<Polygon> polygonized = smoothedAndSnapped.Merge(baselineProcessor.Execute())
-				.Merge(aoiProcessorBuffered.PolygonsToLines().Execute())
+				.Merge(aoiProcessor.PolygonsToLines().Execute())
+				.Node(new PrecisionModel(10000))
+				.ReducePrecision(new PrecisionModel(1000))
+				.Union(provider.GetRequiredService<ILogger<Processor>>())
 				.Polygonize();
 
 			IProcessor<Polygon> cleanedAndClippedToAoi = polygonized.EliminatePolygons().Clip(aoi);

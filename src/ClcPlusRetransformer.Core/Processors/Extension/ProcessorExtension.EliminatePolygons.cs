@@ -1,17 +1,19 @@
-﻿// <copyright file="GeometryExtension.EliminatePolygons.cs" company="Spatial Focus GmbH">
+﻿// <copyright file="ProcessorExtension.EliminatePolygons.cs" company="Spatial Focus GmbH">
 // Copyright (c) Spatial Focus GmbH. All rights reserved.
 // </copyright>
 
-namespace ClcPlusRetransformer.Core
+namespace ClcPlusRetransformer.Core.Processors.Extension
 {
 	using System;
+	using System.Collections.Concurrent;
 	using System.Collections.Generic;
 	using System.Linq;
+	using System.Threading.Tasks;
 	using NetTopologySuite.Geometries;
 	using NetTopologySuite.Index;
 	using NetTopologySuite.Index.Quadtree;
 
-	public static partial class GeometryExtension
+	public static partial class ProcessorExtension
 	{
 		public static IProcessor<Polygon> EliminatePolygons(this IProcessor<Polygon> processor)
 		{
@@ -21,36 +23,37 @@ namespace ClcPlusRetransformer.Core
 			}
 
 			return processor.Chain<Polygon>("EliminatePolygons",
-				geometries => GeometryExtension.EliminatePolygons(geometries).Select(x => x.Copy()).Cast<Polygon>().ToList());
+				geometries => ProcessorExtension.EliminatePolygons(geometries).ToList());
 		}
 
-		private static ICollection<Polygon> EliminatePolygons(ICollection<Polygon> polygons)
+		public static IEnumerable<Polygon> EliminatePolygons(ICollection<Polygon> polygons, double threshold = 5000)
 		{
 			if (polygons == null)
 			{
 				throw new ArgumentNullException(nameof(polygons));
 			}
 
-			Quadtree<Polygon> index = new Quadtree<Polygon>();
+			Quadtree<Polygon> spatialIndex = new Quadtree<Polygon>();
 			List<Polygon> polygonsToEliminateList = new List<Polygon>();
 
 			foreach (Polygon polygon in polygons)
 			{
-				if (polygon.Area <= 5000)
+				if (polygon.Area <= threshold)
 				{
 					polygonsToEliminateList.Add(polygon);
 				}
 				else
 				{
-					index.Insert(polygon.EnvelopeInternal, polygon);
+					spatialIndex.Insert(polygon.EnvelopeInternal, polygon);
 				}
 			}
 
-			IDictionary<Polygon, ICollection<Polygon>> eliminatePairs = GeometryExtension.GetEliminatePairs(polygonsToEliminateList, index);
+			IDictionary<Polygon, ConcurrentBag<Polygon>> eliminatePairs =
+				ProcessorExtension.GetEliminatePairs(polygonsToEliminateList, spatialIndex);
 
 			while (eliminatePairs.Keys.Any())
 			{
-				foreach ((Polygon motherPolygon, ICollection<Polygon> polygonsToEliminate) in eliminatePairs)
+				foreach ((Polygon motherPolygon, ConcurrentBag<Polygon> polygonsToEliminate) in eliminatePairs)
 				{
 					foreach (Polygon polygonToEliminate in polygonsToEliminate)
 					{
@@ -58,21 +61,27 @@ namespace ClcPlusRetransformer.Core
 					}
 
 					Polygon mergedPolygon = (Polygon)motherPolygon.Union(new MultiPolygon(polygonsToEliminate.ToArray()));
-					index.Remove(motherPolygon.EnvelopeInternal, motherPolygon);
-					index.Insert(mergedPolygon.EnvelopeInternal, mergedPolygon);
+					spatialIndex.Remove(motherPolygon.EnvelopeInternal, motherPolygon);
+					spatialIndex.Insert(mergedPolygon.EnvelopeInternal, mergedPolygon);
 				}
 
-				eliminatePairs = GeometryExtension.GetEliminatePairs(polygonsToEliminateList, index);
+				eliminatePairs = ProcessorExtension.GetEliminatePairs(polygonsToEliminateList, spatialIndex);
 			}
 
-			return index.QueryAll().Select(x => x.Copy()).Cast<Polygon>().Union(polygonsToEliminateList.Select(x => x.Copy()).Cast<Polygon>()).ToList();
+			return spatialIndex.QueryAll()
+				.Select(x => x.Copy())
+				.Cast<Polygon>()
+				.Union(polygonsToEliminateList.Select(x => x.Copy()).Cast<Polygon>());
 		}
 
-		private static IDictionary<Polygon, ICollection<Polygon>> GetEliminatePairs(ICollection<Polygon> geometriesToEliminate, ISpatialIndex<Polygon> index)
+		private static IDictionary<Polygon, ConcurrentBag<Polygon>> GetEliminatePairs(ICollection<Polygon> geometriesToEliminate,
+			ISpatialIndex<Polygon> index)
 		{
-			IDictionary<Polygon, ICollection<Polygon>> results = new Dictionary<Polygon, ICollection<Polygon>>();
+			// Force ConcurrentDictionary, otherwise TryAdd will refer to the IDictionary extension method
+			// See https://github.com/dotnet/runtime/issues/30451
+			ConcurrentDictionary<Polygon, ConcurrentBag<Polygon>> results = new ConcurrentDictionary<Polygon, ConcurrentBag<Polygon>>();
 
-			foreach (Polygon geometryToEliminate in geometriesToEliminate)
+			Parallel.ForEach(geometriesToEliminate, geometryToEliminate =>
 			{
 				List<Polygon> candidates = index.Query(geometryToEliminate.EnvelopeInternal)
 					.Where(result => result.Touches(geometryToEliminate))
@@ -80,7 +89,7 @@ namespace ClcPlusRetransformer.Core
 
 				if (!candidates.Any())
 				{
-					continue;
+					return;
 				}
 
 				var candidateWithLargestCommonBorder = candidates
@@ -95,18 +104,14 @@ namespace ClcPlusRetransformer.Core
 
 				if (!candidateWithLargestCommonBorder.Any())
 				{
-					continue;
+					return;
 				}
 
 				Polygon polygon = candidateWithLargestCommonBorder.First().Candidate;
 
-				if (!results.ContainsKey(polygon))
-				{
-					results[polygon] = new List<Polygon>();
-				}
-
+				results.TryAdd(polygon, new ConcurrentBag<Polygon>());
 				results[polygon].Add(geometryToEliminate);
-			}
+			});
 
 			return results;
 		}
