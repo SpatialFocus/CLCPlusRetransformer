@@ -77,7 +77,8 @@ namespace ClcPlusRetransformer.Core.Processors
 			}
 		}
 
-		public static void Save<TGeometryType>(this IEnumerable<TGeometryType> geometries, string fileName) where TGeometryType : Geometry
+		public static void Save<TGeometryType>(this IEnumerable<TGeometryType> geometries, string fileName, string projectionInfo = null)
+			where TGeometryType : Geometry
 		{
 			while (File.Exists(fileName))
 			{
@@ -101,9 +102,15 @@ namespace ClcPlusRetransformer.Core.Processors
 			{
 				writer.Write(geometry);
 			}
+
+			if (projectionInfo != null)
+			{
+				File.WriteAllText(Path.ChangeExtension(fileName, "prj"), projectionInfo);
+			}
 		}
 
-		public static void Save<TGeometryType>(this TGeometryType geometry, string fileName) where TGeometryType : Geometry
+		public static void Save<TGeometryType>(this TGeometryType geometry, string fileName, string projectionInfo = null)
+			where TGeometryType : Geometry
 		{
 			while (File.Exists(fileName))
 			{
@@ -124,6 +131,11 @@ namespace ClcPlusRetransformer.Core.Processors
 			using ShapefileWriter writer = new ShapefileWriter(fileName, typeof(TGeometryType).ToShapeGeometryType());
 
 			writer.Write(geometry);
+
+			if (projectionInfo != null)
+			{
+				File.WriteAllText(Path.ChangeExtension(fileName, "prj"), projectionInfo);
+			}
 		}
 	}
 }

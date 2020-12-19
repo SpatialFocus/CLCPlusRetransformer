@@ -26,15 +26,8 @@ namespace ClcPlusRetransformer.Cli
 			IConfigurationRoot config = builder.Build();
 
 			ServiceCollection serviceCollection = new ServiceCollection();
-			serviceCollection.AddLogging(x =>
-				x.AddSerilog(new LoggerConfiguration().MinimumLevel.Debug().WriteTo.Console().CreateLogger()));
-
-			// Logging should be configured in appsettings. Cannot publish single file unless this is resolved:
-			// https://github.com/serilog/serilog-settings-configuration/issues/239
-			////serviceCollection.AddLogging(loggingBuilder =>
-			////{
-			////	loggingBuilder.AddSerilog(new LoggerConfiguration().ReadFrom.Configuration(config.GetSection("Logging")).CreateLogger());
-			////});
+			serviceCollection.AddLogging(loggingBuilder =>
+				loggingBuilder.AddSerilog(new LoggerConfiguration().ReadFrom.Configuration(config.GetSection("Logging")).CreateLogger()));
 
 			serviceCollection.AddTransient(typeof(Processor<>));
 			serviceCollection.AddTransient(typeof(ChainedProcessor<,>));
@@ -74,7 +67,7 @@ namespace ClcPlusRetransformer.Cli
 				{
 					hardboneProcessor.Execute();
 				}
-				catch (Exception e)
+				catch (Exception)
 				{
 					logger.LogWarning("Loading and intersecting hardbones failed, falling back to Buffer(0)");
 
@@ -89,7 +82,7 @@ namespace ClcPlusRetransformer.Cli
 				{
 					backboneProcessor.Execute();
 				}
-				catch (Exception e)
+				catch (Exception)
 				{
 					logger.LogWarning("Loading and intersecting backbones failed, falling back to Buffer(0)");
 
@@ -100,11 +93,9 @@ namespace ClcPlusRetransformer.Cli
 
 			await Task.WhenAll(task1, task2, task3, task4).ConfigureAwait(true);
 
-			IProcessor<LineString> hardboneProcessorLines = hardboneProcessor.PolygonsToLines()
-				.Dissolve();
+			IProcessor<LineString> hardboneProcessorLines = hardboneProcessor.PolygonsToLines().Dissolve();
 
-			IProcessor<LineString> backboneProcessorLines = backboneProcessor.PolygonsToLines()
-				.Dissolve();
+			IProcessor<LineString> backboneProcessorLines = backboneProcessor.PolygonsToLines().Dissolve();
 
 			IProcessor<LineString> difference = backboneProcessorLines
 				.Difference(hardboneProcessorLines.Execute(), provider.GetRequiredService<ILogger<Processor>>())
@@ -123,10 +114,17 @@ namespace ClcPlusRetransformer.Cli
 
 			IProcessor<Polygon> cleanedAndClippedToAoi = polygonized.EliminatePolygons().Clip(aoi);
 
-			cleanedAndClippedToAoi.Execute().Save(config["OutputFileName"]);
+			string projectionInfo = ShapeProjection.ReadProjectionInfo(aoiFileName);
+			cleanedAndClippedToAoi.Execute().Save(config["OutputFileName"], projectionInfo);
 
 			stopwatch.Stop();
 			logger.LogInformation("Workflow finished in {Time}ms", stopwatch.ElapsedMilliseconds);
+
+			if (bool.Parse(config["WaitForUserInputAfterCompletion"]))
+			{
+				Console.WriteLine("=== PRESS A KEY TO PROCEED ===");
+				Console.ReadKey();
+			}
 		}
 	}
 }
