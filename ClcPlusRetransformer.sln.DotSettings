@@ -214,5 +214,6 @@ Copyright (c) Spatial Focus GmbH. All rights reserved.
 	<s:Boolean x:Key="/Default/UserDictionary/Words/=Polygonize/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/UserDictionary/Words/=polygonizer/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/UserDictionary/Words/=Retransformer/@EntryIndexedValue">True</s:Boolean>
+	<s:Boolean x:Key="/Default/UserDictionary/Words/=shapefile/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/UserDictionary/Words/=Singlepart/@EntryIndexedValue">True</s:Boolean>
 </wpf:ResourceDictionary>

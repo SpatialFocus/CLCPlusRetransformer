@@ -8,6 +8,7 @@ namespace ClcPlusRetransformer.Core.Processors
 	using System.Collections.Generic;
 	using System.IO;
 	using System.Linq;
+	using NetTopologySuite.Features;
 	using NetTopologySuite.Geometries;
 	using NetTopologySuite.IO;
 
@@ -96,12 +97,18 @@ namespace ClcPlusRetransformer.Core.Processors
 				}
 			}
 
-			using ShapefileWriter writer = new ShapefileWriter(fileName, typeof(TGeometryType).ToShapeGeometryType());
+			List<IFeature> features = geometries.Select(x => (IFeature)new Feature(x,
+					new AttributesTable(new Dictionary<string, object>() { { "Length", x.Length }, { "Area", x.Area } })))
+				.ToList();
 
-			foreach (TGeometryType geometry in geometries)
-			{
-				writer.Write(geometry);
-			}
+			DbaseFileHeader fileHeader = new DbaseFileHeader();
+			fileHeader.AddColumn("Length", 'N', 18, 11);
+			fileHeader.AddColumn("Area", 'N', 18, 11);
+			fileHeader.NumRecords = features.Count;
+
+			ShapefileDataWriter shapefileDataWriter = new ShapefileDataWriter(fileName) { Header = fileHeader, };
+
+			shapefileDataWriter.Write(features);
 
 			if (projectionInfo != null)
 			{
