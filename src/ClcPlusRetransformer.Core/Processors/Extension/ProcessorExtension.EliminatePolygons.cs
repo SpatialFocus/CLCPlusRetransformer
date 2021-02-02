@@ -27,7 +27,7 @@ namespace ClcPlusRetransformer.Core.Processors.Extension
 			return container.Chain<Polygon>("EliminatePolygons",
 				geometries => ProcessorExtension.EliminatePolygons(geometries, onProgress: (current, total) =>
 				{
-					logger?.LogDebug("{ProcessorName} [{DataName}] progress: {Current} / {Total}", "Union", container.DataName, current, total);
+					logger?.LogDebug("{ProcessorName} [{DataName}] progress: {Current} / {Total}", "EliminatePolygons", container.DataName, current, total);
 				}).ToList());
 		}
 
