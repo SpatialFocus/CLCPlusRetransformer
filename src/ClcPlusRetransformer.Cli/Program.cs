@@ -36,7 +36,7 @@ namespace ClcPlusRetransformer.Cli
 			ServiceProvider provider = serviceCollection.BuildServiceProvider();
 			ILogger<Program> logger = provider.GetRequiredService<ILogger<Program>>();
 
-			PrecisionModel precisionModel = new PrecisionModel(PrecisionModels.Floating);
+			PrecisionModel precisionModel = new PrecisionModel(10);
 
 			string aoiFileName = config["AoiFileName"];
 
@@ -54,10 +54,10 @@ namespace ClcPlusRetransformer.Cli
 			Polygon bufferedAoi = aoiProcessorBuffered.Execute().Single();
 
 			IProcessor<LineString> baselineProcessor =
-				provider.LoadFromFileAndClip<LineString>(baselineFileName, precisionModel, bufferedAoi);
+				provider.LoadFromFileAndClip<LineString>(baselineFileName, precisionModel, bufferedAoi, provider.GetRequiredService<ILogger<Processor>>());
 
-			IProcessor<Polygon> hardboneProcessor = provider.LoadFromFileAndClip<Polygon>(hardboneFileName, precisionModel, bufferedAoi);
-			IProcessor<Polygon> backboneProcessor = provider.LoadFromFileAndClip<Polygon>(backboneFileName, precisionModel, bufferedAoi);
+			IProcessor<Polygon> hardboneProcessor = provider.LoadFromFileAndClip<Polygon>(hardboneFileName, precisionModel, bufferedAoi, provider.GetRequiredService<ILogger<Processor>>());
+			IProcessor<Polygon> backboneProcessor = provider.LoadFromFileAndClip<Polygon>(backboneFileName, precisionModel, bufferedAoi, provider.GetRequiredService<ILogger<Processor>>());
 
 			Task task1 = Task.Run(() => aoiProcessorBuffered.PolygonsToLines().Execute());
 			Task task2 = Task.Run(() => baselineProcessor.Execute());
@@ -108,11 +108,10 @@ namespace ClcPlusRetransformer.Cli
 			IProcessor<Polygon> polygonized = smoothedAndSnapped.Merge(baselineProcessor.Execute())
 				.Merge(aoiProcessor.PolygonsToLines().Execute())
 				.Node(new PrecisionModel(10000))
-				.ReducePrecision(new PrecisionModel(1000))
 				.Union(provider.GetRequiredService<ILogger<Processor>>())
 				.Polygonize();
 
-			IProcessor<Polygon> cleanedAndClippedToAoi = polygonized.EliminatePolygons().Clip(aoi);
+			IProcessor<Polygon> cleanedAndClippedToAoi = polygonized.EliminatePolygons(provider.GetRequiredService<ILogger<Processor>>()).Clip(aoi);
 
 			string projectionInfo = ShapeProjection.ReadProjectionInfo(aoiFileName);
 			cleanedAndClippedToAoi.Execute().Save(config["OutputFileName"], projectionInfo);

@@ -10,6 +10,7 @@ namespace ClcPlusRetransformer.Core
 	using System.Linq;
 	using ClcPlusRetransformer.Core.Processors;
 	using Microsoft.Extensions.DependencyInjection;
+	using Microsoft.Extensions.Logging;
 	using NetTopologySuite.Geometries;
 	using NetTopologySuite.IO;
 
@@ -23,21 +24,35 @@ namespace ClcPlusRetransformer.Core
 			return factory.CreateProcessor("From geometries", dataName, () => geometries);
 		}
 
-		public static IProcessor<TGeometryType> LoadFromFile<TGeometryType>(this IServiceProvider serviceProvider, string fileName, PrecisionModel precisionModel)
+		public static IProcessor<TGeometryType> LoadFromFile<TGeometryType>(this IServiceProvider serviceProvider, string fileName, PrecisionModel precisionModel, ILogger<Processor> logger = null)
 			where TGeometryType : Geometry
 		{
 			ProcessorFactory factory = serviceProvider.GetRequiredService<ProcessorFactory>();
 			return factory.CreateProcessor<TGeometryType>("Load from file", Path.GetFileNameWithoutExtension(fileName),
-				() => ServiceProviderExtension.Read<TGeometryType>(fileName, precisionModel).ToList());
+				() =>
+				{
+					List<TGeometryType> geometries = ServiceProviderExtension.Read<TGeometryType>(fileName, precisionModel).ToList();
+
+					logger?.LogDebug("{ProcessorName} [{DataName}] {Count} geometries loaded", "Union", fileName, geometries.Count);
+
+					return geometries;
+				});
 		}
 
 		public static IProcessor<TGeometryType> LoadFromFileAndClip<TGeometryType>(this IServiceProvider serviceProvider, string fileName,
-			PrecisionModel precisionModel, Geometry otherGeometry) where TGeometryType : Geometry
+			PrecisionModel precisionModel, Geometry otherGeometry, ILogger<Processor> logger = null) where TGeometryType : Geometry
 		{
 			ProcessorFactory factory = serviceProvider.GetRequiredService<ProcessorFactory>();
 
 			return factory.CreateProcessor<TGeometryType>("Load from file and clip", Path.GetFileNameWithoutExtension(fileName),
-				() => ServiceProviderExtension.ReadAndClip<TGeometryType>(fileName, precisionModel, otherGeometry).ToList());
+				() =>
+				{
+					List<TGeometryType> geometries = ServiceProviderExtension.ReadAndClip<TGeometryType>(fileName, precisionModel, otherGeometry).ToList();
+
+					logger?.LogDebug("{ProcessorName} [{DataName}] {Count} geometries loaded", "Union", fileName, geometries.Count);
+
+					return geometries;
+				});
 		}
 
 		public static IEnumerable<TGeometryType> Read<TGeometryType>(string fileName, PrecisionModel precisionModel) where TGeometryType : Geometry
