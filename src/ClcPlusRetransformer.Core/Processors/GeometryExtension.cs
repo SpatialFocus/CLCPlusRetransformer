@@ -78,7 +78,7 @@ namespace ClcPlusRetransformer.Core.Processors
 			}
 		}
 
-		public static void Save<TGeometryType>(this IEnumerable<TGeometryType> geometries, string fileName, string projectionInfo = null)
+		public static void Save<TGeometryType>(this IEnumerable<TGeometryType> geometries, string fileName, PrecisionModel precisionModel, string projectionInfo = null)
 			where TGeometryType : Geometry
 		{
 			while (File.Exists(fileName))
@@ -106,7 +106,7 @@ namespace ClcPlusRetransformer.Core.Processors
 			fileHeader.AddColumn("Area", 'N', 18, 11);
 			fileHeader.NumRecords = features.Count;
 
-			ShapefileDataWriter shapefileDataWriter = new ShapefileDataWriter(fileName) { Header = fileHeader, };
+			ShapefileDataWriter shapefileDataWriter = new ShapefileDataWriter(fileName, new GeometryFactory(precisionModel)) { Header = fileHeader, };
 
 			shapefileDataWriter.Write(features);
 
