@@ -67,6 +67,11 @@ namespace ClcPlusRetransformer.Core.Processors.Extension
 			Envelope envelope = new Envelope(point.Coordinate);
 			envelope.ExpandBy(20);
 
+			if (tree.IsEmpty)
+			{
+				return null;
+			}
+
 			Point vertex = tree.NearestNeighbour(envelope, point, pointItemDistance);
 
 			// Check if vertex exists ...

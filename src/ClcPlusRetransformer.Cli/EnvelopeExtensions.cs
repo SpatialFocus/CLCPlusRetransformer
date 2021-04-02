@@ -1,4 +1,4 @@
-﻿// <copyright file="EnvelopeExtension.cs" company="Spatial Focus GmbH">
+﻿// <copyright file="EnvelopeExtensions.cs" company="Spatial Focus GmbH">
 // Copyright (c) Spatial Focus GmbH. All rights reserved.
 // </copyright>
 
@@ -7,8 +7,10 @@ namespace ClcPlusRetransformer.Cli
 	using System.Collections.Generic;
 	using NetTopologySuite.Geometries;
 
-	public static class EnvelopeExtension
+	public static class EnvelopeExtensions
 	{
+		public static Geometry ToGeometry(this Envelope envelope) => (Polygon)new GeometryFactory().ToGeometry(envelope);
+
 		public static IEnumerable<Envelope> Split(this Envelope envelope, int numberOfSplits)
 		{
 			for (int i = 0; i < numberOfSplits; i++)
