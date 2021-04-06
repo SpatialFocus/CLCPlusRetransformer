@@ -48,9 +48,9 @@ namespace ClcPlusRetransformer.Cli
 			PrecisionModel precisionModel = new PrecisionModel(10);
 
 			await Program.ImportShapefilesToSqliteAsync(provider, config, precisionModel, logger);
-			await Program.ProcessTiles(provider, config, logger);
-			await Program.MergeTiles(provider, config, logger);
-			await Program.MergeToResult(provider, config, logger);
+			await Program.ProcessTilesAsync(provider, config, logger);
+			await Program.MergeTilesAsync(provider, config, logger);
+			await Program.MergeToResultAsync(provider, config, logger);
 
 			stopwatch.Stop();
 			logger.LogInformation("Workflow finished in {Time}ms", stopwatch.ElapsedMilliseconds);

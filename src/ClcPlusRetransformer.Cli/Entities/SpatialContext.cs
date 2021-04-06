@@ -57,7 +57,7 @@ namespace ClcPlusRetransformer.Cli.Entities
 				entityTypeBuilder.HasIndex(x => x.OriginId).IsUnique();
 
 				entityTypeBuilder.Property(x => x.RelatedGeometries)
-					.HasConversion(ids => string.Join(';', ids),
+					.HasConversion(ids => string.Join(';', ids.Select(x => x.ToString().ToUpper())),
 						text => text.Split(';', StringSplitOptions.RemoveEmptyEntries).Select(Guid.Parse).ToList(),
 						ListValueComparer<Guid>.Default());
 			});

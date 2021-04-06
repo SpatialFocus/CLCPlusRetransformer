@@ -1,4 +1,4 @@
-﻿// <copyright file="Program.ProcessTiles.cs" company="Spatial Focus GmbH">
+﻿// <copyright file="Program.ProcessTilesAsync.cs" company="Spatial Focus GmbH">
 // Copyright (c) Spatial Focus GmbH. All rights reserved.
 // </copyright>
 
@@ -20,7 +20,7 @@ namespace ClcPlusRetransformer.Cli
 
 	public partial class Program
 	{
-		public static async Task ProcessTiles(IServiceProvider provider, IConfigurationRoot configuration,
+		public static async Task ProcessTilesAsync(IServiceProvider provider, IConfigurationRoot configuration,
 			ILogger<Program> logger, CancellationToken cancellationToken = default)
 		{
 			logger.LogInformation("Partitioning and processing tiles");
@@ -56,7 +56,7 @@ namespace ClcPlusRetransformer.Cli
 
 			// TODO: Configuration variable
 			Envelope tileEnvelopeBuffered = tileEnvelope.Copy();
-			tileEnvelopeBuffered.ExpandBy(500);
+			tileEnvelopeBuffered.ExpandBy(1000);
 
 			IProcessor<LineString> baselineProcessor = provider.FromGeometries("baseline",
 				spatialContext.Set<Baseline>()

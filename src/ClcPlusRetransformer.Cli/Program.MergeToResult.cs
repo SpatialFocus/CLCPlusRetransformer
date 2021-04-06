@@ -1,4 +1,4 @@
-﻿// <copyright file="Program.MergeToResult.cs" company="Spatial Focus GmbH">
+﻿// <copyright file="Program.MergeToResultAsync.cs" company="Spatial Focus GmbH">
 // Copyright (c) Spatial Focus GmbH. All rights reserved.
 // </copyright>
 
@@ -18,7 +18,7 @@ namespace ClcPlusRetransformer.Cli
 
 	public partial class Program
 	{
-		public static async Task MergeToResult(IServiceProvider provider, IConfigurationRoot configuration, ILogger<Program> logger,
+		public static async Task MergeToResultAsync(IServiceProvider provider, IConfigurationRoot configuration, ILogger<Program> logger,
 			CancellationToken cancellationToken = default)
 		{
 			SpatialContext spatialContext = provider.CreateScope().ServiceProvider.GetRequiredService<SpatialContext>();
@@ -108,13 +108,13 @@ namespace ClcPlusRetransformer.Cli
 				return false;
 			}
 
-			List<Guid> relatedGeometryIds;
+			ICollection<Guid> relatedGeometryIds;
 
 			bool completed = true;
 
 			do
 			{
-				relatedGeometryIds = resultGeometry.RelatedGeometries.ToList();
+				relatedGeometryIds = resultGeometry.ExtendedRelatedGeometryIds(spatialContext);
 
 				foreach (Guid relatedGeometryId in relatedGeometryIds)
 				{
@@ -161,7 +161,7 @@ namespace ClcPlusRetransformer.Cli
 					await spatialContext.SaveChangesAsync(cancellationToken);
 				}
 			}
-			while (!resultGeometry.RelatedGeometries.SequenceEqual(relatedGeometryIds));
+			while (!resultGeometry.ExtendedRelatedGeometryIds(spatialContext).SequenceEqual(relatedGeometryIds));
 
 			resultGeometry.Locked = false;
 

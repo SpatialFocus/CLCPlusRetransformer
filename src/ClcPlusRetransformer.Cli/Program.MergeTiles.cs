@@ -1,4 +1,4 @@
-﻿// <copyright file="Program.MergeTiles.cs" company="Spatial Focus GmbH">
+﻿// <copyright file="Program.MergeTilesAsync.cs" company="Spatial Focus GmbH">
 // Copyright (c) Spatial Focus GmbH. All rights reserved.
 // </copyright>
 
@@ -19,7 +19,7 @@ namespace ClcPlusRetransformer.Cli
 
 	public partial class Program
 	{
-		public static async Task MergeTiles(IServiceProvider provider, IConfigurationRoot configuration, ILogger<Program> logger,
+		public static async Task MergeTilesAsync(IServiceProvider provider, IConfigurationRoot configuration, ILogger<Program> logger,
 			CancellationToken cancellationToken = default)
 		{
 			int remainingTiles;
@@ -117,11 +117,21 @@ namespace ClcPlusRetransformer.Cli
 
 				sharedBorders = sharedBorders.Where(sharedBorder =>
 					{
-						IntersectionMatrix relate = bufferedPolygon.Polygon.Relate(sharedBorder);
+						Geometry boundaryIntersection = sharedBorder.Intersection(bufferedPolygon.Polygon.Boundary);
 
-						return relate[Location.Interior, Location.Interior] == Dimension.Curve ||
-							(relate[Location.Boundary, Location.Interior] == Dimension.Point &&
-								sharedBorder.Intersection(bufferedPolygon.Polygon).Dimension == Dimension.Curve);
+						if (boundaryIntersection.Dimension == Dimension.Curve && !boundaryIntersection.IsEmpty)
+						{
+							return false;
+						}
+
+						Geometry polygonIntersection = sharedBorder.Intersection(bufferedPolygon.Polygon);
+
+						if (polygonIntersection.Dimension != Dimension.Curve || polygonIntersection.IsEmpty)
+						{
+							return false;
+						}
+
+						return true;
 					})
 					.ToList();
 
@@ -170,10 +180,13 @@ namespace ClcPlusRetransformer.Cli
 			{
 				TileGeometry tileGeometry = new TileGeometry()
 				{
-					Polygon = mergedGeometry.Polygon, RelatedGeometries = mergedGeometry.RelatedGeometries.ToList(),
+					Polygon = mergedGeometry.Polygon,
+					RelatedGeometries = mergedGeometry.RelatedGeometries.ToList(),
 				};
 
+				mergedGeometry.RelatedGeometries.Add(mergedGeometry.Id);
 				mergedGeometry.RelatedGeometries.Add(tileGeometry.Id);
+				tileGeometry.RelatedGeometries.Add(tileGeometry.Id);
 				tileGeometry.RelatedGeometries.Add(mergedGeometry.Id);
 
 				mergedGeometry.TileId = first.Id;
