@@ -52,6 +52,8 @@ namespace ClcPlusRetransformer.Cli
 			await Program.MergeTilesAsync(provider, config, logger);
 			await Program.MergeToResultAsync(provider, config, logger);
 
+			//await Program.ProcessTestAsync(provider, config, logger);
+
 			stopwatch.Stop();
 			logger.LogInformation("Workflow finished in {Time}ms", stopwatch.ElapsedMilliseconds);
 

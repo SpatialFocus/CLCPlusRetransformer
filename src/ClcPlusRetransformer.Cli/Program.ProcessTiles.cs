@@ -105,17 +105,21 @@ namespace ClcPlusRetransformer.Cli
 			}
 
 			////IProcessor<LineString> difference = provider.LoadFromFile<LineString>(@"C:\temp\geoville\difference.shp", new PrecisionModel(10));
-			////difference.Execute().Save(@"C:\temp\geoville\difference.shp", new PrecisionModel(10));
+			difference.Execute().Save(@"C:\temp\geoville\update_07_06\difference.shp", new PrecisionModel(10000));
 
 			IProcessor<LineString> simplified = difference.Simplify();
-			////simplified.Execute().Save(@"C:\temp\geoville\simplified.shp", new PrecisionModel(10));
+			simplified.Execute().Save(@"C:\temp\geoville\update_07_06\simplified.shp", new PrecisionModel(10000));
 
 			IProcessor<LineString> smoothed = simplified.Smooth();
-			////smoothed.Execute().Save(@"C:\temp\geoville\smoothed.shp", new PrecisionModel(10));
+			smoothed.Execute().Save(@"C:\temp\geoville\update_07_06\smoothed.shp", new PrecisionModel(10000));
+
+			baselineProcessor.Execute().Save(@"C:\temp\geoville\update_07_06\baselineProcessor.shp", new PrecisionModel(10000));
 
 			IProcessor<LineString> smoothedAndSnapped = smoothed.SnapTo(baselineProcessor.Execute());
+			smoothedAndSnapped.Execute().Save(@"C:\temp\geoville\update_07_06\smoothedAndSnapped.shp", new PrecisionModel(10000));
 
 			IProcessor<LineString> processor = smoothedAndSnapped.Merge(baselineProcessor.Execute());
+			processor.Execute().Save(@"C:\temp\geoville\update_07_06\merged.shp", new PrecisionModel(10000));
 
 			Envelope geometriesEnvelope = new GeometryCollection(processor.Execute().Cast<Geometry>().ToArray()).EnvelopeInternal;
 
@@ -131,7 +135,7 @@ namespace ClcPlusRetransformer.Cli
 
 			IProcessor<Polygon> eliminatePolygons = polygonized.EliminatePolygons(provider.GetRequiredService<ILogger<Processor>>());
 			IProcessor<Polygon> cleanedAndClippedToAoi = eliminatePolygons.Clip(tileEnvelope.ToGeometry());
-			////cleanedAndClippedToAoi.Execute().Save(@"C:\temp\geoville\RT_new_DP_and_smooth_half.shp", new PrecisionModel(10));
+			cleanedAndClippedToAoi.Execute().Save(@"C:\temp\geoville\update_07_06\RT_new_DP_and_smooth.shp", new PrecisionModel(10000));
 
 			tile.Locked = false;
 			tile.TileStatus = TileStatus.Processed;
