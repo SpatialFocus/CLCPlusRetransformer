@@ -104,7 +104,15 @@ namespace ClcPlusRetransformer.Cli
 				return;
 			}
 
-			IProcessor<LineString> smoothed = difference.Smooth();
+			////IProcessor<LineString> difference = provider.LoadFromFile<LineString>(@"C:\temp\geoville\difference.shp", new PrecisionModel(10));
+			////difference.Execute().Save(@"C:\temp\geoville\difference.shp", new PrecisionModel(10));
+
+			IProcessor<LineString> simplified = difference.Simplify();
+			////simplified.Execute().Save(@"C:\temp\geoville\simplified.shp", new PrecisionModel(10));
+
+			IProcessor<LineString> smoothed = simplified.Smooth();
+			////smoothed.Execute().Save(@"C:\temp\geoville\smoothed.shp", new PrecisionModel(10));
+
 			IProcessor<LineString> smoothedAndSnapped = smoothed.SnapTo(baselineProcessor.Execute());
 
 			IProcessor<LineString> processor = smoothedAndSnapped.Merge(baselineProcessor.Execute());
@@ -123,6 +131,7 @@ namespace ClcPlusRetransformer.Cli
 
 			IProcessor<Polygon> eliminatePolygons = polygonized.EliminatePolygons(provider.GetRequiredService<ILogger<Processor>>());
 			IProcessor<Polygon> cleanedAndClippedToAoi = eliminatePolygons.Clip(tileEnvelope.ToGeometry());
+			////cleanedAndClippedToAoi.Execute().Save(@"C:\temp\geoville\RT_new_DP_and_smooth_half.shp", new PrecisionModel(10));
 
 			tile.Locked = false;
 			tile.TileStatus = TileStatus.Processed;

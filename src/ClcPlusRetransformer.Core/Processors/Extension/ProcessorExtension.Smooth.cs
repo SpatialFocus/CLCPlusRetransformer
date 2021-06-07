@@ -49,13 +49,13 @@ namespace ClcPlusRetransformer.Core.Processors.Extension
 				Coordinate p0 = input[i];
 				Coordinate p1 = input[i + 1];
 
-				Coordinate s = new Coordinate((0.5 * p0.X) + (0.5 * p1.X), (0.5 * p0.Y) + (0.5 * p1.Y));
-				output.Add(s);
+				////Coordinate s = new Coordinate((0.5 * p0.X) + (0.5 * p1.X), (0.5 * p0.Y) + (0.5 * p1.Y));
+				////output.Add(s);
 
-				////Coordinate q = new Coordinate((0.75 * p0x) + (0.25 * p1x), (0.75 * p0y) + (0.25 * p1y));
-				////Coordinate r = new Coordinate((0.25 * p0x) + (0.75 * p1x), (0.25 * p0y) + (0.75 * p1y));
-				////output.Add(q);
-				////output.Add(r);
+				Coordinate q = new Coordinate((0.75 * p0.X) + (0.25 * p1.X), (0.75 * p0.Y) + (0.25 * p1.Y));
+				Coordinate r = new Coordinate((0.25 * p0.X) + (0.75 * p1.X), (0.25 * p0.Y) + (0.75 * p1.Y));
+				output.Add(q);
+				output.Add(r);
 			}
 
 			output.Add(addFirstAndLastPoint ? new Coordinate(input[^1]) : output.First().Copy());
