@@ -65,7 +65,7 @@ namespace ClcPlusRetransformer.Core.Processors.Extension
 			PointItemDistance pointItemDistance)
 		{
 			Envelope envelope = new Envelope(point.Coordinate);
-			envelope.ExpandBy(20);
+			envelope.ExpandBy(17);
 
 			if (tree.IsEmpty)
 			{
@@ -75,7 +75,7 @@ namespace ClcPlusRetransformer.Core.Processors.Extension
 			Point vertex = tree.NearestNeighbour(envelope, point, pointItemDistance);
 
 			// Check if vertex exists ...
-			if (point.IsWithinDistance(vertex, 20))
+			if (point.IsWithinDistance(vertex, 17))
 			{
 				return vertex.Coordinate;
 			}
@@ -83,9 +83,9 @@ namespace ClcPlusRetransformer.Core.Processors.Extension
 			// ... fallback to the nearest point on all lineStringCollection
 			ICollection<LineString> lineStrings = tree.Query(envelope).Cast<PointWithLine>().Select(x => x.LineString).Distinct().ToList();
 
-			if (lineStrings.Any(x => new DistanceOp(point, x).Distance() <= 20))
+			if (lineStrings.Any(x => new DistanceOp(point, x).Distance() <= 17))
 			{
-				DistanceOp distanceOperation = lineStrings.Select(x => new DistanceOp(point2, x))
+				DistanceOp distanceOperation = lineStrings.Select(x => new DistanceOp(point, x))
 					.OrderBy(distanceOp => distanceOp.Distance())
 					.First();
 
