@@ -131,8 +131,7 @@ namespace ClcPlusRetransformer.Cli
 
 			IProcessor<Polygon> eliminatePolygons = polygonized
 				.EliminatePolygons(baselineProcessor.Execute(), provider.GetRequiredService<ILogger<Processor>>())
-				.EliminatePolygons(provider.FromGeometries<LineString>("empty").Execute(),
-					provider.GetRequiredService<ILogger<Processor>>());
+				.EliminatePolygons(Array.Empty<LineString>(), provider.GetRequiredService<ILogger<Processor>>());
 			IProcessor<Polygon> cleanedAndClippedToAoi = eliminatePolygons.Clip(tileEnvelope.ToGeometry());
 			////cleanedAndClippedToAoi.Execute().Save(@"C:\temp\geoville\RT_new_DP_and_smooth_half.shp", new PrecisionModel(10));
 
