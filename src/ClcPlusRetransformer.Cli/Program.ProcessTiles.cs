@@ -1,4 +1,4 @@
-﻿// <copyright file="Program.ProcessTilesAsync.cs" company="Spatial Focus GmbH">
+﻿// <copyright file="Program.ProcessTiles.cs" company="Spatial Focus GmbH">
 // Copyright (c) Spatial Focus GmbH. All rights reserved.
 // </copyright>
 
@@ -20,8 +20,8 @@ namespace ClcPlusRetransformer.Cli
 
 	public partial class Program
 	{
-		public static async Task ProcessTilesAsync(IServiceProvider provider, IConfigurationRoot configuration,
-			ILogger<Program> logger, CancellationToken cancellationToken = default)
+		public static async Task ProcessTilesAsync(IServiceProvider provider, IConfigurationRoot configuration, ILogger<Program> logger,
+			CancellationToken cancellationToken = default)
 		{
 			logger.LogInformation("Partitioning and processing tiles");
 
@@ -30,12 +30,12 @@ namespace ClcPlusRetransformer.Cli
 			await EnvelopeExtension.Split(new Envelope(new Coordinate(x1, y1), new Coordinate(x2, y2)), numberOfSplits)
 				.ForEachAsync(4,
 					async (envelope, innerCancellationToken) =>
-						await Program.CleanedAndClippedToAoiAsync(provider.CreateScope().ServiceProvider, configuration, envelope, innerCancellationToken),
-					cancellationToken);
+						await Program.CleanedAndClippedToAoiAsync(provider.CreateScope().ServiceProvider, configuration, envelope,
+							innerCancellationToken), cancellationToken);
 		}
 
-		private static async Task CleanedAndClippedToAoiAsync(IServiceProvider provider, IConfigurationRoot configuration, Envelope tileEnvelope,
-			CancellationToken cancellationToken = default)
+		private static async Task CleanedAndClippedToAoiAsync(IServiceProvider provider, IConfigurationRoot configuration,
+			Envelope tileEnvelope, CancellationToken cancellationToken = default)
 		{
 			SpatialContext spatialContext = provider.GetRequiredService<SpatialContext>();
 
@@ -129,7 +129,10 @@ namespace ClcPlusRetransformer.Cli
 				.Union(provider.GetRequiredService<ILogger<Processor>>())
 				.Polygonize();
 
-			IProcessor<Polygon> eliminatePolygons = polygonized.EliminatePolygons(provider.GetRequiredService<ILogger<Processor>>());
+			IProcessor<Polygon> eliminatePolygons = polygonized
+				.EliminatePolygons(baselineProcessor.Execute(), provider.GetRequiredService<ILogger<Processor>>())
+				.EliminatePolygons(provider.FromGeometries<LineString>("empty").Execute(),
+					provider.GetRequiredService<ILogger<Processor>>());
 			IProcessor<Polygon> cleanedAndClippedToAoi = eliminatePolygons.Clip(tileEnvelope.ToGeometry());
 			////cleanedAndClippedToAoi.Execute().Save(@"C:\temp\geoville\RT_new_DP_and_smooth_half.shp", new PrecisionModel(10));
 

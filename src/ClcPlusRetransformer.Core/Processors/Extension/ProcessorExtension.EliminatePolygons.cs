@@ -17,21 +17,26 @@ namespace ClcPlusRetransformer.Core.Processors.Extension
 
 	public static partial class ProcessorExtension
 	{
-		public static IProcessor<Polygon> EliminatePolygons(this IProcessor<Polygon> container, ILogger logger = null)
+		public static IProcessor<Polygon> EliminatePolygons(this IProcessor<Polygon> container, ICollection<LineString> hardbones,
+			ILogger logger = null)
 		{
 			if (container == null)
 			{
 				throw new ArgumentNullException(nameof(container));
 			}
 
-			return container.Chain<Polygon>("EliminatePolygons",
-				geometries => ProcessorExtension.EliminatePolygons(geometries, onProgress: (current, total) =>
-				{
-					logger?.LogDebug("{ProcessorName} [{DataName}] progress: {Current} / {Total}", "EliminatePolygons", container.DataName, current, total);
-				}).ToList());
+			return container.Chain<Polygon>("EliminatePolygons", geometries => ProcessorExtension.EliminatePolygons(geometries,
+					new GeometryCollection(hardbones.Cast<Geometry>().ToArray()), onProgress: (current, total) =>
+					{
+						logger?.LogDebug("{ProcessorName} [{DataName}] progress: {Current} / {Total}", "EliminatePolygons",
+							container.DataName,
+							current, total);
+					})
+				.ToList());
 		}
 
-		public static IEnumerable<Polygon> EliminatePolygons(ICollection<Polygon> polygons, double threshold = 5000, Action<int, int> onProgress = null)
+		public static IEnumerable<Polygon> EliminatePolygons(ICollection<Polygon> polygons, GeometryCollection hardbones,
+			double threshold = 5000, Action<int, int> onProgress = null)
 		{
 			if (polygons == null)
 			{
@@ -54,7 +59,7 @@ namespace ClcPlusRetransformer.Core.Processors.Extension
 			}
 
 			IDictionary<Polygon, ConcurrentBag<Polygon>> eliminatePairs =
-				ProcessorExtension.GetEliminatePairs(polygonsToEliminateList, spatialIndex, onProgress);
+				ProcessorExtension.GetEliminatePairs(polygonsToEliminateList, hardbones, spatialIndex, onProgress);
 
 			while (eliminatePairs.Keys.Any())
 			{
@@ -70,7 +75,7 @@ namespace ClcPlusRetransformer.Core.Processors.Extension
 					spatialIndex.Insert(mergedPolygon.EnvelopeInternal, mergedPolygon);
 				}
 
-				eliminatePairs = ProcessorExtension.GetEliminatePairs(polygonsToEliminateList, spatialIndex, onProgress);
+				eliminatePairs = ProcessorExtension.GetEliminatePairs(polygonsToEliminateList, hardbones, spatialIndex, onProgress);
 			}
 
 			return spatialIndex.QueryAll()
@@ -80,7 +85,7 @@ namespace ClcPlusRetransformer.Core.Processors.Extension
 		}
 
 		private static IDictionary<Polygon, ConcurrentBag<Polygon>> GetEliminatePairs(ICollection<Polygon> geometriesToEliminate,
-			ISpatialIndex<Polygon> index, Action<int, int> onProgress = null)
+			GeometryCollection hardbones, ISpatialIndex<Polygon> index, Action<int, int> onProgress = null)
 		{
 			// Force ConcurrentDictionary, otherwise TryAdd will refer to the IDictionary extension method
 			// See https://github.com/dotnet/runtime/issues/30451
@@ -117,12 +122,17 @@ namespace ClcPlusRetransformer.Core.Processors.Extension
 					.OrderByDescending(candidate => candidate.Intersection.Sum(lineString => lineString.Length))
 					.ToList();
 
-				if (!candidateWithLargestCommonBorder.Any())
+				var choosen = candidateWithLargestCommonBorder.FirstOrDefault(candidate =>
+					!candidate.Intersection
+						.SelectMany(lineString => hardbones.Intersection(lineString.Buffer(0.1)).FlattenAndIgnore<LineString>())
+						.Any(lineString => lineString.Length > 1));
+
+				if (choosen == null)
 				{
 					return;
 				}
 
-				Polygon polygon = candidateWithLargestCommonBorder.First().Candidate;
+				Polygon polygon = choosen.Candidate;
 
 				results.TryAdd(polygon, new ConcurrentBag<Polygon>());
 				results[polygon].Add(geometryToEliminate);
