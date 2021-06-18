@@ -45,12 +45,19 @@ namespace ClcPlusRetransformer.Cli
 			logger.LogInformation("Workflow started");
 			Stopwatch stopwatch = Stopwatch.StartNew();
 
-			PrecisionModel precisionModel = new PrecisionModel(10);
+			PrecisionModel precisionModel = new PrecisionModel(10000);
 
-			await Program.ImportShapefilesToSqliteAsync(provider, config, precisionModel, logger);
-			await Program.ProcessTilesAsync(provider, config, logger);
-			await Program.MergeTilesAsync(provider, config, logger);
-			await Program.MergeToResultAsync(provider, config, logger);
+			if (int.Parse(config["PartitionCount"]) > 1)
+			{
+				await Program.ImportShapefilesToSqliteAsync(provider, config, precisionModel, logger);
+				await Program.ProcessTilesAsync(provider, config, precisionModel, logger);
+				await Program.MergeTilesAsync(provider, config, logger);
+				await Program.MergeToResultAsync(provider, config, logger);
+			}
+			else
+			{
+				await Program.ProcessShapesAsync(provider, config, precisionModel, logger);
+			}
 
 			stopwatch.Stop();
 			logger.LogInformation("Workflow finished in {Time}ms", stopwatch.ElapsedMilliseconds);

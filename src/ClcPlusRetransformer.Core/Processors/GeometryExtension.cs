@@ -29,17 +29,17 @@ namespace ClcPlusRetransformer.Core.Processors
 					break;
 
 				case GeometryCollection geometryCollection:
-				{
-					foreach (Geometry geometryCollectionGeometry in geometryCollection.Geometries)
 					{
-						foreach (TGeometryType geometry2 in geometryCollectionGeometry.FlattenAndIgnore<TGeometryType>())
+						foreach (Geometry geometryCollectionGeometry in geometryCollection.Geometries)
 						{
-							yield return geometry2;
+							foreach (TGeometryType geometry2 in geometryCollectionGeometry.FlattenAndIgnore<TGeometryType>())
+							{
+								yield return geometry2;
+							}
 						}
-					}
 
-					break;
-				}
+						break;
+					}
 
 				default:
 					yield break;
@@ -61,25 +61,25 @@ namespace ClcPlusRetransformer.Core.Processors
 					break;
 
 				case GeometryCollection geometryCollection:
-				{
-					foreach (Geometry geometryCollectionGeometry in geometryCollection.Geometries)
 					{
-						foreach (TGeometryType geometry2 in geometryCollectionGeometry.FlattenAndThrow<TGeometryType>())
+						foreach (Geometry geometryCollectionGeometry in geometryCollection.Geometries)
 						{
-							yield return geometry2;
+							foreach (TGeometryType geometry2 in geometryCollectionGeometry.FlattenAndThrow<TGeometryType>())
+							{
+								yield return geometry2;
+							}
 						}
-					}
 
-					break;
-				}
+						break;
+					}
 
 				default:
 					throw new InvalidOperationException($"Unexpected geometry type {geometry.GetType().Name}");
 			}
 		}
 
-		public static void Save<TGeometryType>(this IEnumerable<TGeometryType> geometries, string fileName, PrecisionModel precisionModel, string projectionInfo = null)
-			where TGeometryType : Geometry
+		public static void Save<TGeometryType>(this IEnumerable<TGeometryType> geometries, string fileName, PrecisionModel precisionModel,
+			string projectionInfo = null) where TGeometryType : Geometry
 		{
 			while (File.Exists(fileName))
 			{
@@ -97,16 +97,19 @@ namespace ClcPlusRetransformer.Core.Processors
 				}
 			}
 
+			int i = 0;
 			List<IFeature> features = geometries.Select(x => (IFeature)new Feature(x,
-					new AttributesTable(new Dictionary<string, object>() { { "Length", x.Length }, { "Area", x.Area } })))
+					new AttributesTable(new Dictionary<string, object>() { { "Id", ++i }, { "Length", x.Length }, { "Area", x.Area } })))
 				.ToList();
 
 			DbaseFileHeader fileHeader = new DbaseFileHeader();
+			fileHeader.AddColumn("Id", 'N', 18, 0);
 			fileHeader.AddColumn("Length", 'N', 18, 11);
 			fileHeader.AddColumn("Area", 'N', 18, 11);
 			fileHeader.NumRecords = features.Count;
 
-			ShapefileDataWriter shapefileDataWriter = new ShapefileDataWriter(fileName, new GeometryFactory(precisionModel)) { Header = fileHeader, };
+			ShapefileDataWriter shapefileDataWriter =
+				new ShapefileDataWriter(fileName, new GeometryFactory(precisionModel)) { Header = fileHeader, };
 
 			shapefileDataWriter.Write(features);
 

@@ -44,6 +44,10 @@ namespace ClcPlusRetransformer.Core.Processors.Extension
 				output.Add(new Coordinate(input[0]));
 			}
 
+			// Smoothing settings -> 0.15 and 0.85
+			double e1 = 0.15;
+			double e2 = 1.0 - e1;
+
 			for (int i = 0; i < input.Length - 1; i++)
 			{
 				Coordinate p0 = input[i];
@@ -52,8 +56,8 @@ namespace ClcPlusRetransformer.Core.Processors.Extension
 				////Coordinate s = new Coordinate((0.5 * p0.X) + (0.5 * p1.X), (0.5 * p0.Y) + (0.5 * p1.Y));
 				////output.Add(s);
 
-				Coordinate q = new Coordinate((0.75 * p0.X) + (0.25 * p1.X), (0.75 * p0.Y) + (0.25 * p1.Y));
-				Coordinate r = new Coordinate((0.25 * p0.X) + (0.75 * p1.X), (0.25 * p0.Y) + (0.75 * p1.Y));
+				Coordinate q = new Coordinate((e2 * p0.X) + (e1 * p1.X), (e2 * p0.Y) + (e1 * p1.Y));
+				Coordinate r = new Coordinate((e1 * p0.X) + (e2 * p1.X), (e1 * p0.Y) + (e2 * p1.Y));
 				output.Add(q);
 				output.Add(r);
 			}
