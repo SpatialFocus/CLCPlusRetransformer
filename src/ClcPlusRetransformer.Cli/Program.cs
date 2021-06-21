@@ -8,6 +8,7 @@ namespace ClcPlusRetransformer.Cli
 	using System.Diagnostics;
 	using System.Threading.Tasks;
 	using ClcPlusRetransformer.Cli.Entities;
+	using ClcPlusRetransformer.Core;
 	using ClcPlusRetransformer.Core.Processors;
 	using Microsoft.EntityFrameworkCore;
 	using Microsoft.Extensions.Configuration;
@@ -47,17 +48,23 @@ namespace ClcPlusRetransformer.Cli
 
 			PrecisionModel precisionModel = new PrecisionModel(10000);
 
+			IProcessor<Polygon> resultProcessor;
+
 			if (int.Parse(config["PartitionCount"]) > 1)
 			{
 				await Program.ImportShapefilesToSqliteAsync(provider, config, precisionModel, logger);
 				await Program.ProcessTilesAsync(provider, config, precisionModel, logger);
 				await Program.MergeTilesAsync(provider, config, logger);
-				await Program.MergeToResultAsync(provider, config, logger);
+				resultProcessor = await Program.MergeToResultAsync(provider, config, logger);
 			}
 			else
 			{
-				await Program.ProcessShapesAsync(provider, config, precisionModel, logger);
+				resultProcessor = await Program.ProcessShapesAsync(provider, config, precisionModel, logger);
 			}
+
+			// Save result to Shapefile
+			string exportFileName = config["ProcessedOutputFileName"];
+			resultProcessor.Execute().Save(exportFileName, precisionModel, ShapeProjection.ReadProjectionInfo(config["BaselineFileName"]));
 
 			stopwatch.Stop();
 			logger.LogInformation("Workflow finished in {Time}ms", stopwatch.ElapsedMilliseconds);

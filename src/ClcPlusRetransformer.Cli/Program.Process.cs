@@ -23,8 +23,8 @@ namespace ClcPlusRetransformer.Cli
 	{
 		private static readonly int bufferDistance = 1000;
 
-		public static async Task ProcessShapesAsync(IServiceProvider provider, IConfigurationRoot config, PrecisionModel precisionModel,
-			ILogger<Program> logger, CancellationToken cancellationToken = default)
+		public static async Task<IProcessor<Polygon>> ProcessShapesAsync(IServiceProvider provider, IConfigurationRoot config,
+			PrecisionModel precisionModel, ILogger<Program> logger, CancellationToken cancellationToken = default)
 		{
 			logger.LogInformation("Processing shapes");
 
@@ -32,17 +32,14 @@ namespace ClcPlusRetransformer.Cli
 			string hardboneFileName = config["HardboneFileName"];
 			string backboneFileName = config["BackboneFileName"];
 
-			IProcessor<LineString> baselineProcessor = provider.LoadFromFile<LineString>(baselineFileName, precisionModel,
-				provider.GetRequiredService<ILogger<Processor>>());
-			IProcessor<Polygon> hardboneProcessor =
-				provider.LoadFromFile<Polygon>(hardboneFileName, precisionModel, provider.GetRequiredService<ILogger<Processor>>());
-			IProcessor<Polygon> backboneProcessor =
-				provider.LoadFromFile<Polygon>(backboneFileName, precisionModel, provider.GetRequiredService<ILogger<Processor>>());
+			IProcessor<LineString> baselineProcessor;
+			IProcessor<Polygon> hardboneProcessor;
+			IProcessor<Polygon> backboneProcessor;
 
 			Envelope envelope = null;
 			IConfigurationSection aoiSection = config.GetSection("Aoi");
 
-			if (aoiSection != null)
+			if (aoiSection.Exists())
 			{
 				(double x1, double y1, double x2, double y2) = aoiSection.Get<double[]>();
 
@@ -50,22 +47,36 @@ namespace ClcPlusRetransformer.Cli
 				Envelope bufferedEnvelope = envelope.Copy();
 				bufferedEnvelope.ExpandBy(Program.bufferDistance);
 
-				baselineProcessor = baselineProcessor.Clip(bufferedEnvelope.ToGeometry());
-				hardboneProcessor = hardboneProcessor.Clip(bufferedEnvelope.ToGeometry());
-				backboneProcessor = backboneProcessor.Clip(bufferedEnvelope.ToGeometry());
+				baselineProcessor = provider.LoadFromFileAndClip<LineString>(baselineFileName, precisionModel,
+					bufferedEnvelope.ToGeometry(), provider.GetRequiredService<ILogger<Processor>>());
+				hardboneProcessor = provider
+					.LoadFromFile<Polygon>(hardboneFileName, precisionModel, provider.GetRequiredService<ILogger<Processor>>())
+					.Buffer(0)
+					.Clip(bufferedEnvelope.ToGeometry());
+				backboneProcessor = provider
+					.LoadFromFile<Polygon>(backboneFileName, precisionModel, provider.GetRequiredService<ILogger<Processor>>())
+					.Buffer(0)
+					.Clip(bufferedEnvelope.ToGeometry());
+			}
+			else
+			{
+				baselineProcessor = provider.LoadFromFile<LineString>(baselineFileName, precisionModel,
+					provider.GetRequiredService<ILogger<Processor>>());
+				hardboneProcessor = provider.LoadFromFile<Polygon>(hardboneFileName, precisionModel,
+					provider.GetRequiredService<ILogger<Processor>>());
+				backboneProcessor = provider.LoadFromFile<Polygon>(backboneFileName, precisionModel,
+					provider.GetRequiredService<ILogger<Processor>>());
 			}
 
 			IProcessor<Polygon> processedPolygons = await Program.ProcessInternalAsync(baselineProcessor, hardboneProcessor,
-				backboneProcessor, new Envelope(), provider, precisionModel);
+				backboneProcessor, null, provider, precisionModel);
 
 			if (envelope != null)
 			{
-				processedPolygons.Clip(envelope.ToGeometry());
+				processedPolygons = processedPolygons.Clip(envelope.ToGeometry());
 			}
 
-			string exportFileName = config["ProcessedTileOutputFileName"];
-			processedPolygons.Execute()
-				.Save(exportFileName, precisionModel, ShapeProjection.ReadProjectionInfo(config["BaselineFileName"]));
+			return processedPolygons;
 		}
 
 		public static async Task ProcessTilesAsync(IServiceProvider provider, IConfigurationRoot configuration,
@@ -146,9 +157,9 @@ namespace ClcPlusRetransformer.Cli
 			tile.Locked = false;
 			tile.TileStatus = TileStatus.Processed;
 
-			string exportFileName = configuration["ProcessedTileOutputFileName"];
+			string exportFileName = configuration["ProcessedOutputFileName"];
 			string fileName = Path.Combine(Path.GetDirectoryName(exportFileName),
-				$"{Path.GetFileNameWithoutExtension(exportFileName)}_{tile.Id}{Path.GetExtension(exportFileName)}");
+				$"{Path.GetFileNameWithoutExtension(exportFileName)}_tile{tile.Id}{Path.GetExtension(exportFileName)}");
 			cleanedAndClippedToAoi.Execute()
 				.Save(fileName, precisionModel, ShapeProjection.ReadProjectionInfo(configuration["BaselineFileName"]));
 
@@ -201,9 +212,15 @@ namespace ClcPlusRetransformer.Cli
 
 			Envelope geometriesEnvelope = new GeometryCollection(processor.Execute().Cast<Geometry>().ToArray()).EnvelopeInternal;
 
-			Envelope minimumEnvelope = new Envelope(Math.Max(geometriesEnvelope.MinX, tileEnvelopeBuffered.MinX),
-				Math.Min(geometriesEnvelope.MaxX, tileEnvelopeBuffered.MaxX), Math.Max(geometriesEnvelope.MinY, tileEnvelopeBuffered.MinY),
-				Math.Min(geometriesEnvelope.MaxY, tileEnvelopeBuffered.MaxY));
+			Envelope minimumEnvelope = geometriesEnvelope;
+
+			if (tileEnvelopeBuffered != null)
+			{
+				minimumEnvelope = new Envelope(Math.Max(geometriesEnvelope.MinX, tileEnvelopeBuffered.MinX),
+					Math.Min(geometriesEnvelope.MaxX, tileEnvelopeBuffered.MaxX),
+					Math.Max(geometriesEnvelope.MinY, tileEnvelopeBuffered.MinY),
+					Math.Min(geometriesEnvelope.MaxY, tileEnvelopeBuffered.MaxY));
+			}
 
 			IProcessor<Polygon> polygonized = processor
 				.Merge(provider.FromGeometries("tileEnvelope", (Polygon)minimumEnvelope.ToGeometry()).PolygonsToLines().Execute())

@@ -1,4 +1,4 @@
-﻿// <copyright file="Program.MergeToResultAsync.cs" company="Spatial Focus GmbH">
+﻿// <copyright file="Program.MergeToResult.cs" company="Spatial Focus GmbH">
 // Copyright (c) Spatial Focus GmbH. All rights reserved.
 // </copyright>
 
@@ -10,6 +10,8 @@ namespace ClcPlusRetransformer.Cli
 	using System.Threading;
 	using System.Threading.Tasks;
 	using ClcPlusRetransformer.Cli.Entities;
+	using ClcPlusRetransformer.Core;
+	using ClcPlusRetransformer.Core.Processors;
 	using Microsoft.EntityFrameworkCore;
 	using Microsoft.Extensions.Configuration;
 	using Microsoft.Extensions.DependencyInjection;
@@ -18,8 +20,8 @@ namespace ClcPlusRetransformer.Cli
 
 	public partial class Program
 	{
-		public static async Task MergeToResultAsync(IServiceProvider provider, IConfigurationRoot configuration, ILogger<Program> logger,
-			CancellationToken cancellationToken = default)
+		public static async Task<IProcessor<Polygon>> MergeToResultAsync(IServiceProvider provider, IConfigurationRoot configuration,
+			ILogger<Program> logger, CancellationToken cancellationToken = default)
 		{
 			SpatialContext spatialContext = provider.CreateScope().ServiceProvider.GetRequiredService<SpatialContext>();
 			Source source = await spatialContext.Sources.SingleAsync(x => x.Name == configuration["SourceName"], cancellationToken);
@@ -38,10 +40,7 @@ namespace ClcPlusRetransformer.Cli
 								.Where(x => x.TileId == tile.Id)
 								.Select(x => new ResultGeometry()
 								{
-									Polygon = x.Polygon,
-									OriginId = x.Id,
-									RelatedGeometries = x.RelatedGeometries,
-									SourceId = source.Id,
+									Polygon = x.Polygon, OriginId = x.Id, RelatedGeometries = x.RelatedGeometries, SourceId = source.Id,
 								}), cancellationToken);
 				}
 			}
@@ -72,6 +71,9 @@ namespace ClcPlusRetransformer.Cli
 					completed => completed);
 			}
 			while (!completedAll);
+
+			return provider.FromGeometries("result",
+				spatialContext.Set<ResultGeometry>().Where(x => x.Source == source).Select(x => x.Polygon).ToArray());
 		}
 
 		private static async Task<bool> ProcessGeometry(IServiceProvider provider, int id, ILogger<Program> logger,
