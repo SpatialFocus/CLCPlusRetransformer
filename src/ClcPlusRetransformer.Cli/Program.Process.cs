@@ -33,7 +33,7 @@ namespace ClcPlusRetransformer.Cli
 			string backboneFileName = config["BackboneFileName"];
 
 			IProcessor<LineString> baselineProcessor;
-			IProcessor<Polygon> hardboneProcessor;
+			IProcessor<LineString> hardboneProcessor;
 			IProcessor<Polygon> backboneProcessor;
 
 			Envelope envelope = null;
@@ -41,28 +41,44 @@ namespace ClcPlusRetransformer.Cli
 
 			if (aoiSection.Exists())
 			{
-				(double x1, double y1, double x2, double y2) = aoiSection.Get<double[]>();
+				if (aoiSection.GetChildren().Count() > 1)
+				{
+					(double x1, double y1, double x2, double y2) = aoiSection.Get<double[]>();
 
-				envelope = new Envelope(new Coordinate(x1, y1), new Coordinate(x2, y2));
-				Envelope bufferedEnvelope = envelope.Copy();
-				bufferedEnvelope.ExpandBy(Program.bufferDistance);
+					envelope = new Envelope(new Coordinate(x1, y1), new Coordinate(x2, y2));
+					Envelope bufferedEnvelope = envelope.Copy();
+					bufferedEnvelope.ExpandBy(Program.bufferDistance);
 
-				baselineProcessor = provider.LoadFromFileAndClip<LineString>(baselineFileName, precisionModel,
-					bufferedEnvelope.ToGeometry(), provider.GetRequiredService<ILogger<Processor>>());
-				hardboneProcessor = provider
-					.LoadFromFile<Polygon>(hardboneFileName, precisionModel, provider.GetRequiredService<ILogger<Processor>>())
-					.Buffer(0)
-					.Clip(bufferedEnvelope.ToGeometry());
-				backboneProcessor = provider
-					.LoadFromFile<Polygon>(backboneFileName, precisionModel, provider.GetRequiredService<ILogger<Processor>>())
-					.Buffer(0)
-					.Clip(bufferedEnvelope.ToGeometry());
+					baselineProcessor = provider.LoadFromFileAndClip<LineString>(baselineFileName, precisionModel,
+						bufferedEnvelope.ToGeometry(), provider.GetRequiredService<ILogger<Processor>>());
+					hardboneProcessor = provider
+						.LoadFromFile<LineString>(hardboneFileName, precisionModel, provider.GetRequiredService<ILogger<Processor>>())
+						.Clip(bufferedEnvelope.ToGeometry());
+					backboneProcessor = provider
+						.LoadFromFile<Polygon>(backboneFileName, precisionModel, provider.GetRequiredService<ILogger<Processor>>())
+						.Buffer(0)
+						.Clip(bufferedEnvelope.ToGeometry());
+				}
+				else
+				{
+					Polygon aoi = provider.LoadFromFile<Polygon>(aoiSection.Get<string>(), precisionModel).Execute().Single();
+
+					baselineProcessor = provider.LoadFromFileAndClip<LineString>(baselineFileName, precisionModel,
+						aoi, provider.GetRequiredService<ILogger<Processor>>());
+					hardboneProcessor = provider
+						.LoadFromFile<LineString>(hardboneFileName, precisionModel, provider.GetRequiredService<ILogger<Processor>>())
+						.Clip(aoi);
+					backboneProcessor = provider
+						.LoadFromFile<Polygon>(backboneFileName, precisionModel, provider.GetRequiredService<ILogger<Processor>>())
+						.Buffer(0)
+						.Clip(aoi);
+				}
 			}
 			else
 			{
 				baselineProcessor = provider.LoadFromFile<LineString>(baselineFileName, precisionModel,
 					provider.GetRequiredService<ILogger<Processor>>());
-				hardboneProcessor = provider.LoadFromFile<Polygon>(hardboneFileName, precisionModel,
+				hardboneProcessor = provider.LoadFromFile<LineString>(hardboneFileName, precisionModel,
 					provider.GetRequiredService<ILogger<Processor>>());
 				backboneProcessor = provider.LoadFromFile<Polygon>(backboneFileName, precisionModel,
 					provider.GetRequiredService<ILogger<Processor>>());
@@ -122,7 +138,7 @@ namespace ClcPlusRetransformer.Cli
 					.Select(x => x.Geometry)
 					.ToArray());
 
-			IProcessor<Polygon> hardboneProcessor = provider.FromGeometries("hardbone",
+			IProcessor<LineString> hardboneProcessor = provider.FromGeometries("hardbone",
 					spatialContext.Set<Hardbone>()
 						.Where(x => x.Source == source && x.Geometry.Intersects(tileEnvelopeBuffered.ToGeometry()))
 						.Select(x => x.Geometry)
@@ -175,7 +191,7 @@ namespace ClcPlusRetransformer.Cli
 		}
 
 		private static async Task<IProcessor<Polygon>> ProcessInternalAsync(IProcessor<LineString> baselineProcessor,
-			IProcessor<Polygon> hardboneProcessor, IProcessor<Polygon> backboneProcessor, Envelope tileEnvelopeBuffered,
+			IProcessor<LineString> hardboneProcessor, IProcessor<Polygon> backboneProcessor, Envelope tileEnvelopeBuffered,
 			IServiceProvider provider, PrecisionModel precisionModel)
 		{
 			Task task1 = Task.Run(() => baselineProcessor.Execute());
@@ -184,7 +200,7 @@ namespace ClcPlusRetransformer.Cli
 
 			await Task.WhenAll(task1, task2, task3);
 
-			IProcessor<LineString> hardboneProcessorLines = hardboneProcessor.PolygonsToLines().Dissolve();
+			IProcessor<LineString> hardboneProcessorLines = hardboneProcessor.Dissolve();
 			IProcessor<LineString> backboneProcessorLines = backboneProcessor.PolygonsToLines().Dissolve();
 
 			IProcessor<LineString> difference = backboneProcessorLines
@@ -229,6 +245,7 @@ namespace ClcPlusRetransformer.Cli
 				.Polygonize();
 
 			return polygonized.EliminatePolygons(baselineProcessor.Execute(), provider.GetRequiredService<ILogger<Processor>>())
+				.EliminateMergeSmallPolygons(provider.GetRequiredService<ILogger<Processor>>())
 				.EliminatePolygons(Array.Empty<LineString>(), provider.GetRequiredService<ILogger<Processor>>());
 		}
 	}

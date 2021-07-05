@@ -80,10 +80,10 @@ namespace ClcPlusRetransformer.Cli
 						.LoadFromFile<LineString>(baselineFileName, precisionModel, provider.GetRequiredService<ILogger<Processor>>())
 						.Execute(), cancellationToken);
 
-			Task<ICollection<Polygon>> hardbones =
+			Task<ICollection<LineString>> hardbones =
 				Task.Run(
 					() => provider
-						.LoadFromFile<Polygon>(hardboneFileName, precisionModel, provider.GetRequiredService<ILogger<Processor>>())
+						.LoadFromFile<LineString>(hardboneFileName, precisionModel, provider.GetRequiredService<ILogger<Processor>>())
 						.Execute(), cancellationToken);
 
 			Task<ICollection<Polygon>> backbones =

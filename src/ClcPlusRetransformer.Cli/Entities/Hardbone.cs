@@ -8,7 +8,7 @@ namespace ClcPlusRetransformer.Cli.Entities
 
 	public class Hardbone
 	{
-		public Polygon Geometry { get; set; }
+		public LineString Geometry { get; set; }
 
 		public int Id { get; set; }
 
