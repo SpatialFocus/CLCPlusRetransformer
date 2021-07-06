@@ -36,7 +36,7 @@ namespace ClcPlusRetransformer.Cli
 			IProcessor<LineString> hardboneProcessor;
 			IProcessor<Polygon> backboneProcessor;
 
-			Envelope envelope = null;
+			Geometry border = null;
 			IConfigurationSection aoiSection = config.GetSection("Aoi");
 
 			if (aoiSection.Exists())
@@ -45,8 +45,8 @@ namespace ClcPlusRetransformer.Cli
 				{
 					(double x1, double y1, double x2, double y2) = aoiSection.Get<double[]>();
 
-					envelope = new Envelope(new Coordinate(x1, y1), new Coordinate(x2, y2));
-					Envelope bufferedEnvelope = envelope.Copy();
+					border = (Polygon)new Envelope(new Coordinate(x1, y1), new Coordinate(x2, y2)).ToGeometry();
+					Envelope bufferedEnvelope = border.EnvelopeInternal.Copy();
 					bufferedEnvelope.ExpandBy(Program.bufferDistance);
 
 					baselineProcessor = provider.LoadFromFileAndClip<LineString>(baselineFileName, precisionModel,
@@ -72,6 +72,8 @@ namespace ClcPlusRetransformer.Cli
 						.LoadFromFile<Polygon>(backboneFileName, precisionModel, provider.GetRequiredService<ILogger<Processor>>())
 						.Buffer(0)
 						.Clip(aoi);
+
+					border = aoi;
 				}
 			}
 			else
@@ -87,9 +89,9 @@ namespace ClcPlusRetransformer.Cli
 			IProcessor<Polygon> processedPolygons = await Program.ProcessInternalAsync(baselineProcessor, hardboneProcessor,
 				backboneProcessor, null, provider, precisionModel);
 
-			if (envelope != null)
+			if (border != null)
 			{
-				processedPolygons = processedPolygons.Clip(envelope.ToGeometry());
+				processedPolygons = processedPolygons.Clip(border);
 			}
 
 			return processedPolygons;
@@ -192,7 +194,7 @@ namespace ClcPlusRetransformer.Cli
 
 		private static async Task<IProcessor<Polygon>> ProcessInternalAsync(IProcessor<LineString> baselineProcessor,
 			IProcessor<LineString> hardboneProcessor, IProcessor<Polygon> backboneProcessor, Envelope tileEnvelopeBuffered,
-			IServiceProvider provider, PrecisionModel precisionModel)
+			IServiceProvider provider, PrecisionModel precisionModel, Polygon envelope = null)
 		{
 			Task task1 = Task.Run(() => baselineProcessor.Execute());
 			Task task2 = Task.Run(() => hardboneProcessor.Execute());
@@ -239,7 +241,7 @@ namespace ClcPlusRetransformer.Cli
 			}
 
 			IProcessor<Polygon> polygonized = processor
-				.Merge(provider.FromGeometries("tileEnvelope", (Polygon)minimumEnvelope.ToGeometry()).PolygonsToLines().Execute())
+				.Merge(provider.FromGeometries("tileEnvelope", envelope ?? (Polygon)minimumEnvelope.ToGeometry()).PolygonsToLines().Execute())
 				.Node(precisionModel)
 				.Union(provider.GetRequiredService<ILogger<Processor>>())
 				.Polygonize();
