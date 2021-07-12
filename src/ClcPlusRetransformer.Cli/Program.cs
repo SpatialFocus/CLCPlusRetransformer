@@ -64,7 +64,8 @@ namespace ClcPlusRetransformer.Cli
 
 			// Save result to Shapefile
 			string exportFileName = config["ProcessedOutputFileName"];
-			resultProcessor.Execute().Save(exportFileName, precisionModel, ShapeProjection.ReadProjectionInfo(config["BaselineFileName"]));
+			resultProcessor.Execute().Save(exportFileName, precisionModel);
+			////resultProcessor.Execute().Save(exportFileName, precisionModel, ShapeProjection.ReadProjectionInfo(config["BaselineFileName"]));
 
 			stopwatch.Stop();
 			logger.LogInformation("Workflow finished in {Time}ms", stopwatch.ElapsedMilliseconds);

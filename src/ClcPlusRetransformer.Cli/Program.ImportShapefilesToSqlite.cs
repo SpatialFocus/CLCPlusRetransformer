@@ -65,9 +65,9 @@ namespace ClcPlusRetransformer.Cli
 
 			logger.LogDebug("Importing shapefiles...");
 
-			string baselineFileName = config["BaselineFileName"];
-			string hardboneFileName = config["HardboneFileName"];
-			string backboneFileName = config["BackboneFileName"];
+			Input baselineInput = config.GetSection("Baseline").Get<Input>();
+			Input hardboneInput = config.GetSection("Hardbone").Get<Input>();
+			Input backboneInput = config.GetSection("Backbone").Get<Input>();
 
 			Source source = new Source() { Name = config["SourceName"] };
 
@@ -77,19 +77,19 @@ namespace ClcPlusRetransformer.Cli
 			Task<ICollection<LineString>> baselines =
 				Task.Run(
 					() => provider
-						.LoadFromFile<LineString>(baselineFileName, precisionModel, provider.GetRequiredService<ILogger<Processor>>())
+						.LoadFromFile<LineString>(baselineInput, precisionModel, provider.GetRequiredService<ILogger<Processor>>())
 						.Execute(), cancellationToken);
 
 			Task<ICollection<LineString>> hardbones =
 				Task.Run(
 					() => provider
-						.LoadFromFile<LineString>(hardboneFileName, precisionModel, provider.GetRequiredService<ILogger<Processor>>())
+						.LoadFromFile<LineString>(hardboneInput, precisionModel, provider.GetRequiredService<ILogger<Processor>>())
 						.Execute(), cancellationToken);
 
 			Task<ICollection<Polygon>> backbones =
 				Task.Run(
 					() => provider
-						.LoadFromFile<Polygon>(backboneFileName, precisionModel, provider.GetRequiredService<ILogger<Processor>>())
+						.LoadFromFile<Polygon>(backboneInput, precisionModel, provider.GetRequiredService<ILogger<Processor>>())
 						.Execute(), cancellationToken);
 
 			await spatialContext.Set<Baseline>()

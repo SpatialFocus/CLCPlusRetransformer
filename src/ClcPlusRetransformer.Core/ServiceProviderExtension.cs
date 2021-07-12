@@ -9,8 +9,10 @@ namespace ClcPlusRetransformer.Core
 	using System.IO;
 	using System.Linq;
 	using ClcPlusRetransformer.Core.Processors;
+	using Microsoft.EntityFrameworkCore;
 	using Microsoft.Extensions.DependencyInjection;
 	using Microsoft.Extensions.Logging;
+	using NetTopologySuite;
 	using NetTopologySuite.Geometries;
 	using NetTopologySuite.IO;
 
@@ -24,56 +26,106 @@ namespace ClcPlusRetransformer.Core
 			return factory.CreateProcessor("From geometries", dataName, () => geometries);
 		}
 
-		public static IProcessor<TGeometryType> LoadFromFile<TGeometryType>(this IServiceProvider serviceProvider, string fileName, PrecisionModel precisionModel, ILogger<Processor> logger = null)
-			where TGeometryType : Geometry
+		public static IProcessor<TGeometryType> LoadFromFile<TGeometryType>(this IServiceProvider serviceProvider, Input input,
+			PrecisionModel precisionModel, ILogger<Processor> logger = null) where TGeometryType : Geometry
 		{
 			ProcessorFactory factory = serviceProvider.GetRequiredService<ProcessorFactory>();
-			return factory.CreateProcessor<TGeometryType>("Load from file", Path.GetFileNameWithoutExtension(fileName),
-				() =>
-				{
-					List<TGeometryType> geometries = ServiceProviderExtension.Read<TGeometryType>(fileName, precisionModel).ToList();
+			return factory.CreateProcessor<TGeometryType>("Load from file", Path.GetFileNameWithoutExtension(input.FileName), () =>
+			{
+				List<TGeometryType> geometries = ServiceProviderExtension.Read<TGeometryType>(input, precisionModel).ToList();
 
-					logger?.LogDebug("{ProcessorName} [{DataName}] {Count} geometries loaded", "Union", fileName, geometries.Count);
+				logger?.LogDebug("{ProcessorName} [{DataName}] {Count} geometries loaded", "Union", input.FileName, geometries.Count);
 
-					return geometries;
-				});
+				return geometries;
+			});
 		}
 
-		public static IProcessor<TGeometryType> LoadFromFileAndClip<TGeometryType>(this IServiceProvider serviceProvider, string fileName,
+		public static IProcessor<TGeometryType> LoadFromFileAndClip<TGeometryType>(this IServiceProvider serviceProvider, Input input,
 			PrecisionModel precisionModel, Geometry otherGeometry, ILogger<Processor> logger = null) where TGeometryType : Geometry
 		{
 			ProcessorFactory factory = serviceProvider.GetRequiredService<ProcessorFactory>();
 
-			return factory.CreateProcessor<TGeometryType>("Load from file and clip", Path.GetFileNameWithoutExtension(fileName),
+			return factory.CreateProcessor<TGeometryType>("Load from file and clip", Path.GetFileNameWithoutExtension(input.FileName),
 				() =>
 				{
-					List<TGeometryType> geometries = ServiceProviderExtension.ReadAndClip<TGeometryType>(fileName, precisionModel, otherGeometry).ToList();
+					List<TGeometryType> geometries = ServiceProviderExtension
+						.ReadAndClip<TGeometryType>(input, precisionModel, otherGeometry)
+						.ToList();
 
-					logger?.LogDebug("{ProcessorName} [{DataName}] {Count} geometries loaded", "Union", fileName, geometries.Count);
+					logger?.LogDebug("{ProcessorName} [{DataName}] {Count} geometries loaded", "Union", input.FileName, geometries.Count);
 
 					return geometries;
 				});
 		}
 
-		public static IEnumerable<TGeometryType> Read<TGeometryType>(string fileName, PrecisionModel precisionModel) where TGeometryType : Geometry
+		public static IEnumerable<TGeometryType> Read<TGeometryType>(Input input, PrecisionModel precisionModel)
+			where TGeometryType : Geometry
 		{
-			ShapefileReader reader = new ShapefileReader(fileName, new GeometryFactory(precisionModel));
+			IEnumerable<TGeometryType> geometries;
 
-			foreach (TGeometryType geometry in reader.ReadAll().FlattenAndThrow<TGeometryType>())
+			if (input.FileName.EndsWith(".shp"))
+			{
+				ShapefileReader reader = new ShapefileReader(input.FileName, new GeometryFactory(precisionModel));
+
+				geometries = reader.ReadAll().FlattenAndThrow<TGeometryType>();
+			}
+			else
+			{
+				DbContext dbContext =
+					new GeoPackageContext(new DbContextOptionsBuilder<DbContext>().UseSqlite($"Data Source={input.FileName}").Options);
+				GeometryColumn geometryColumn = dbContext.Set<GeometryColumn>()
+					.FromSqlRaw(
+						$"SELECT table_name as tablename, column_name as columnname FROM gpkg_geometry_columns WHERE table_name = '{input.LayerName}'")
+					.Single();
+
+				GeoPackageGeoReader reader =
+					new GeoPackageGeoReader(NtsGeometryServices.Instance.DefaultCoordinateSequenceFactory, precisionModel);
+
+				geometries = dbContext.Set<FeatureRow>()
+					.FromSqlRaw($"SELECT {geometryColumn.ColumnName} as geometry FROM {input.LayerName}")
+					.ToList()
+					.SelectMany(x => reader.Read(x.Geometry).FlattenAndThrow<TGeometryType>());
+			}
+
+			foreach (TGeometryType geometry in geometries)
 			{
 				yield return geometry;
 			}
 		}
 
-		public static IEnumerable<TGeometryType> ReadAndClip<TGeometryType>(string fileName, PrecisionModel precisionModel,
+		public static IEnumerable<TGeometryType> ReadAndClip<TGeometryType>(Input input, PrecisionModel precisionModel,
 			Geometry otherGeometry) where TGeometryType : Geometry
 		{
-			ShapefileReader reader = new ShapefileReader(fileName, new GeometryFactory(precisionModel));
+			IEnumerable<TGeometryType> geometries;
 
 			ICollection<TGeometryType> geometriesUnprocessed = new List<TGeometryType>();
 			ICollection<Geometry> geometriesToProcess = new List<Geometry>();
 
-			foreach (TGeometryType geometry in reader.ReadAll().FlattenAndThrow<TGeometryType>())
+			if (input.FileName.EndsWith(".shp"))
+			{
+				ShapefileReader reader = new ShapefileReader(input.FileName, new GeometryFactory(precisionModel));
+
+				geometries = reader.ReadAll().FlattenAndThrow<TGeometryType>();
+			}
+			else
+			{
+				DbContext dbContext =
+					new GeoPackageContext(new DbContextOptionsBuilder<DbContext>().UseSqlite($"Data Source={input.FileName}").Options);
+				GeometryColumn geometryColumn = dbContext.Set<GeometryColumn>()
+					.FromSqlRaw(
+						$"SELECT table_name as tablename, column_name as columnname FROM gpkg_geometry_columns WHERE table_name = '{input.LayerName}'")
+					.Single();
+
+				GeoPackageGeoReader reader =
+					new GeoPackageGeoReader(NtsGeometryServices.Instance.DefaultCoordinateSequenceFactory, precisionModel);
+
+				geometries = dbContext.Set<FeatureRow>()
+					.FromSqlRaw($"SELECT {geometryColumn.ColumnName} as geometry FROM {input.LayerName}")
+					.ToList()
+					.SelectMany(x => reader.Read(x.Geometry).FlattenAndThrow<TGeometryType>());
+			}
+
+			foreach (TGeometryType geometry in geometries)
 			{
 				IntersectionMatrix intersectionMatrix = otherGeometry.Relate(geometry);
 

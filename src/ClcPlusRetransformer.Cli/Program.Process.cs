@@ -28,9 +28,9 @@ namespace ClcPlusRetransformer.Cli
 		{
 			logger.LogInformation("Processing shapes");
 
-			string baselineFileName = config["BaselineFileName"];
-			string hardboneFileName = config["HardboneFileName"];
-			string backboneFileName = config["BackboneFileName"];
+			Input baselineInput = config.GetSection("Baseline").Get<Input>();
+			Input hardboneInput = config.GetSection("Hardbone").Get<Input>();
+			Input backboneInput = config.GetSection("Backbone").Get<Input>();
 
 			IProcessor<LineString> baselineProcessor;
 			IProcessor<LineString> hardboneProcessor;
@@ -41,6 +41,8 @@ namespace ClcPlusRetransformer.Cli
 
 			if (aoiSection.Exists())
 			{
+				Geometry aoi;
+
 				if (aoiSection.GetChildren().Count() > 1)
 				{
 					(double x1, double y1, double x2, double y2) = aoiSection.Get<double[]>();
@@ -49,40 +51,30 @@ namespace ClcPlusRetransformer.Cli
 					Envelope bufferedEnvelope = border.EnvelopeInternal.Copy();
 					bufferedEnvelope.ExpandBy(Program.bufferDistance);
 
-					baselineProcessor = provider.LoadFromFileAndClip<LineString>(baselineFileName, precisionModel,
-						bufferedEnvelope.ToGeometry(), provider.GetRequiredService<ILogger<Processor>>());
-					hardboneProcessor = provider
-						.LoadFromFile<LineString>(hardboneFileName, precisionModel, provider.GetRequiredService<ILogger<Processor>>())
-						.Clip(bufferedEnvelope.ToGeometry());
-					backboneProcessor = provider
-						.LoadFromFile<Polygon>(backboneFileName, precisionModel, provider.GetRequiredService<ILogger<Processor>>())
-						.Buffer(0)
-						.Clip(bufferedEnvelope.ToGeometry());
+					aoi = bufferedEnvelope.ToGeometry();
 				}
 				else
 				{
-					Polygon aoi = provider.LoadFromFile<Polygon>(aoiSection.Get<string>(), precisionModel).Execute().Single();
-
-					baselineProcessor = provider.LoadFromFileAndClip<LineString>(baselineFileName, precisionModel,
-						aoi, provider.GetRequiredService<ILogger<Processor>>());
-					hardboneProcessor = provider
-						.LoadFromFile<LineString>(hardboneFileName, precisionModel, provider.GetRequiredService<ILogger<Processor>>())
-						.Clip(aoi);
-					backboneProcessor = provider
-						.LoadFromFile<Polygon>(backboneFileName, precisionModel, provider.GetRequiredService<ILogger<Processor>>())
-						.Buffer(0)
-						.Clip(aoi);
-
-					border = aoi;
+					aoi = provider.LoadFromFile<Polygon>(aoiSection.Get<Input>(), precisionModel).Execute().Single();
 				}
+
+				baselineProcessor = provider.LoadFromFileAndClip<LineString>(baselineInput, precisionModel, aoi,
+					provider.GetRequiredService<ILogger<Processor>>());
+				hardboneProcessor = provider
+					.LoadFromFile<LineString>(hardboneInput, precisionModel, provider.GetRequiredService<ILogger<Processor>>())
+					.Clip(aoi);
+				backboneProcessor = provider
+					.LoadFromFile<Polygon>(backboneInput, precisionModel, provider.GetRequiredService<ILogger<Processor>>())
+					.Buffer(0)
+					.Clip(aoi);
 			}
 			else
 			{
-				baselineProcessor = provider.LoadFromFile<LineString>(baselineFileName, precisionModel,
+				baselineProcessor = provider.LoadFromFile<LineString>(baselineInput, precisionModel,
 					provider.GetRequiredService<ILogger<Processor>>());
-				hardboneProcessor = provider.LoadFromFile<LineString>(hardboneFileName, precisionModel,
+				hardboneProcessor = provider.LoadFromFile<LineString>(hardboneInput, precisionModel,
 					provider.GetRequiredService<ILogger<Processor>>());
-				backboneProcessor = provider.LoadFromFile<Polygon>(backboneFileName, precisionModel,
+				backboneProcessor = provider.LoadFromFile<Polygon>(backboneInput, precisionModel,
 					provider.GetRequiredService<ILogger<Processor>>());
 			}
 
