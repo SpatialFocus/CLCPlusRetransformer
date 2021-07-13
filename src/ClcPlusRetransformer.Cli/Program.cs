@@ -8,7 +8,6 @@ namespace ClcPlusRetransformer.Cli
 	using System.Diagnostics;
 	using System.Threading.Tasks;
 	using ClcPlusRetransformer.Cli.Entities;
-	using ClcPlusRetransformer.Core;
 	using ClcPlusRetransformer.Core.Processors;
 	using Microsoft.EntityFrameworkCore;
 	using Microsoft.Extensions.Configuration;
@@ -25,7 +24,7 @@ namespace ClcPlusRetransformer.Cli
 
 			IConfigurationRoot config = builder.Build();
 
-			ServiceCollection serviceCollection = new ServiceCollection();
+			ServiceCollection serviceCollection = new();
 			serviceCollection.AddLogging(loggingBuilder =>
 				loggingBuilder.AddSerilog(new LoggerConfiguration().ReadFrom.Configuration(config.GetSection("Logging")).CreateLogger()));
 
@@ -46,7 +45,7 @@ namespace ClcPlusRetransformer.Cli
 			logger.LogInformation("Workflow started");
 			Stopwatch stopwatch = Stopwatch.StartNew();
 
-			PrecisionModel precisionModel = new PrecisionModel(10000);
+			PrecisionModel precisionModel = new(int.Parse(config["Precision"]));
 
 			IProcessor<Polygon> resultProcessor;
 
@@ -62,10 +61,9 @@ namespace ClcPlusRetransformer.Cli
 				resultProcessor = await Program.ProcessShapesAsync(provider, config, precisionModel, logger);
 			}
 
-			// Save result to Shapefile
+			// Save result to Shapefile / Geopackage
 			string exportFileName = config["ProcessedOutputFileName"];
 			resultProcessor.Execute().Save(exportFileName, precisionModel);
-			////resultProcessor.Execute().Save(exportFileName, precisionModel, ShapeProjection.ReadProjectionInfo(config["BaselineFileName"]));
 
 			stopwatch.Stop();
 			logger.LogInformation("Workflow finished in {Time}ms", stopwatch.ElapsedMilliseconds);

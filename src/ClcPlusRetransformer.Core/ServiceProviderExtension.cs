@@ -9,6 +9,8 @@ namespace ClcPlusRetransformer.Core
 	using System.IO;
 	using System.Linq;
 	using ClcPlusRetransformer.Core.Processors;
+	using Geopackage;
+	using Geopackage.Entities;
 	using Microsoft.EntityFrameworkCore;
 	using Microsoft.Extensions.DependencyInjection;
 	using Microsoft.Extensions.Logging;
@@ -45,17 +47,16 @@ namespace ClcPlusRetransformer.Core
 		{
 			ProcessorFactory factory = serviceProvider.GetRequiredService<ProcessorFactory>();
 
-			return factory.CreateProcessor<TGeometryType>("Load from file and clip", Path.GetFileNameWithoutExtension(input.FileName),
-				() =>
-				{
-					List<TGeometryType> geometries = ServiceProviderExtension
-						.ReadAndClip<TGeometryType>(input, precisionModel, otherGeometry)
-						.ToList();
+			return factory.CreateProcessor<TGeometryType>("Load from file and clip", Path.GetFileNameWithoutExtension(input.FileName), () =>
+			{
+				List<TGeometryType> geometries = ServiceProviderExtension
+					.ReadAndClip<TGeometryType>(input, precisionModel, otherGeometry)
+					.ToList();
 
-					logger?.LogDebug("{ProcessorName} [{DataName}] {Count} geometries loaded", "Union", input.FileName, geometries.Count);
+				logger?.LogDebug("{ProcessorName} [{DataName}] {Count} geometries loaded", "Union", input.FileName, geometries.Count);
 
-					return geometries;
-				});
+				return geometries;
+			});
 		}
 
 		public static IEnumerable<TGeometryType> Read<TGeometryType>(Input input, PrecisionModel precisionModel)
@@ -65,21 +66,18 @@ namespace ClcPlusRetransformer.Core
 
 			if (input.FileName.EndsWith(".shp"))
 			{
-				ShapefileReader reader = new ShapefileReader(input.FileName, new GeometryFactory(precisionModel));
+				ShapefileReader reader = new(input.FileName, new GeometryFactory(precisionModel));
 
 				geometries = reader.ReadAll().FlattenAndThrow<TGeometryType>();
 			}
 			else
 			{
-				DbContext dbContext =
-					new GeoPackageContext(new DbContextOptionsBuilder<DbContext>().UseSqlite($"Data Source={input.FileName}").Options);
-				GeometryColumn geometryColumn = dbContext.Set<GeometryColumn>()
-					.FromSqlRaw(
-						$"SELECT table_name as tablename, column_name as columnname FROM gpkg_geometry_columns WHERE table_name = '{input.LayerName}'")
-					.Single();
+				GeopackageContext dbContext = new GeopackageReadContext(new DbContextOptionsBuilder<GeopackageContext>()
+					.UseSqlite($"Data Source={input.FileName}")
+					.Options);
+				GeometryColumn geometryColumn = dbContext.GeometryColumns.Single(x => x.TableName == input.LayerName);
 
-				GeoPackageGeoReader reader =
-					new GeoPackageGeoReader(NtsGeometryServices.Instance.DefaultCoordinateSequenceFactory, precisionModel);
+				GeoPackageGeoReader reader = new(NtsGeometryServices.Instance.DefaultCoordinateSequenceFactory, precisionModel);
 
 				geometries = dbContext.Set<FeatureRow>()
 					.FromSqlRaw($"SELECT {geometryColumn.ColumnName} as geometry FROM {input.LayerName}")
@@ -103,21 +101,18 @@ namespace ClcPlusRetransformer.Core
 
 			if (input.FileName.EndsWith(".shp"))
 			{
-				ShapefileReader reader = new ShapefileReader(input.FileName, new GeometryFactory(precisionModel));
+				ShapefileReader reader = new(input.FileName, new GeometryFactory(precisionModel));
 
 				geometries = reader.ReadAll().FlattenAndThrow<TGeometryType>();
 			}
 			else
 			{
-				DbContext dbContext =
-					new GeoPackageContext(new DbContextOptionsBuilder<DbContext>().UseSqlite($"Data Source={input.FileName}").Options);
-				GeometryColumn geometryColumn = dbContext.Set<GeometryColumn>()
-					.FromSqlRaw(
-						$"SELECT table_name as tablename, column_name as columnname FROM gpkg_geometry_columns WHERE table_name = '{input.LayerName}'")
-					.Single();
+				GeopackageContext dbContext = new GeopackageReadContext(new DbContextOptionsBuilder<GeopackageContext>()
+					.UseSqlite($"Data Source={input.FileName}")
+					.Options);
+				GeometryColumn geometryColumn = dbContext.GeometryColumns.Single(x => x.TableName == input.LayerName);
 
-				GeoPackageGeoReader reader =
-					new GeoPackageGeoReader(NtsGeometryServices.Instance.DefaultCoordinateSequenceFactory, precisionModel);
+				GeoPackageGeoReader reader = new(NtsGeometryServices.Instance.DefaultCoordinateSequenceFactory, precisionModel);
 
 				geometries = dbContext.Set<FeatureRow>()
 					.FromSqlRaw($"SELECT {geometryColumn.ColumnName} as geometry FROM {input.LayerName}")

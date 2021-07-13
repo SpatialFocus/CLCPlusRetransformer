@@ -2,10 +2,10 @@
 // Copyright (c) Spatial Focus GmbH. All rights reserved.
 // </copyright>
 
-namespace ClcPlusRetransformer.Core
+namespace Geopackage.Entities
 {
 	public class FeatureRow
 	{
-		public byte[] Geometry { get; set; }
+		public byte[] Geometry { get; set; } = null!;
 	}
 }

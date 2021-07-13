@@ -18,7 +18,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{0955CF60-B4B
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ClcPlusRetransformer.Cli", "src\ClcPlusRetransformer.Cli\ClcPlusRetransformer.Cli.csproj", "{5FD47C30-91D9-4742-89CC-97394916B1ED}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClcPlusRetransformer.Core", "src\ClcPlusRetransformer.Core\ClcPlusRetransformer.Core.csproj", "{4D11773F-9DDF-4FFB-BAB8-97AE9ECD4A07}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ClcPlusRetransformer.Core", "src\ClcPlusRetransformer.Core\ClcPlusRetransformer.Core.csproj", "{4D11773F-9DDF-4FFB-BAB8-97AE9ECD4A07}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Geopackage", "src\Geopackage\Geopackage.csproj", "{138EC814-0E88-451F-B784-922B58F7C785}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -34,6 +36,10 @@ Global
 		{4D11773F-9DDF-4FFB-BAB8-97AE9ECD4A07}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4D11773F-9DDF-4FFB-BAB8-97AE9ECD4A07}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4D11773F-9DDF-4FFB-BAB8-97AE9ECD4A07}.Release|Any CPU.Build.0 = Release|Any CPU
+		{138EC814-0E88-451F-B784-922B58F7C785}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{138EC814-0E88-451F-B784-922B58F7C785}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{138EC814-0E88-451F-B784-922B58F7C785}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{138EC814-0E88-451F-B784-922B58F7C785}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -41,6 +47,7 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{5FD47C30-91D9-4742-89CC-97394916B1ED} = {0955CF60-B4B8-45FB-B7F3-4D56ED30E140}
 		{4D11773F-9DDF-4FFB-BAB8-97AE9ECD4A07} = {0955CF60-B4B8-45FB-B7F3-4D56ED30E140}
+		{138EC814-0E88-451F-B784-922B58F7C785} = {0955CF60-B4B8-45FB-B7F3-4D56ED30E140}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {4abd6e43-79aa-4a06-8743-03c19ce0b5b0}

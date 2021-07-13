@@ -1,4 +1,4 @@
-﻿// <copyright file="Test.cs" company="Spatial Focus GmbH">
+﻿// <copyright file="EnumerableExtensions.cs" company="Spatial Focus GmbH">
 // Copyright (c) Spatial Focus GmbH. All rights reserved.
 // </copyright>
 
@@ -13,7 +13,8 @@ namespace ClcPlusRetransformer.Cli
 
 	public static class EnumerableExtensions
 	{
-		public static Task ForEachAsync<T>(this IEnumerable<T> source, int degreeOfParallelism, Func<T, CancellationToken, Task> body, CancellationToken cancellationToken = default)
+		public static Task ForEachAsync<T>(this IEnumerable<T> source, int degreeOfParallelism, Func<T, CancellationToken, Task> body,
+			CancellationToken cancellationToken = default)
 		{
 			return Task.WhenAll(Partitioner.Create(source)
 				.GetPartitions(degreeOfParallelism)
@@ -29,9 +30,10 @@ namespace ClcPlusRetransformer.Cli
 				}, cancellationToken)));
 		}
 
-		public static async Task<IEnumerable<TResult>> ForEachAsync<T, TResult>(this IEnumerable<T> source, int degreeOfParallelism, Func<T, CancellationToken, Task<TResult>> body, CancellationToken cancellationToken = default)
+		public static async Task<IEnumerable<TResult>> ForEachAsync<T, TResult>(this IEnumerable<T> source, int degreeOfParallelism,
+			Func<T, CancellationToken, Task<TResult>> body, CancellationToken cancellationToken = default)
 		{
-			ConcurrentBag<TResult> concurrentBag = new ConcurrentBag<TResult>();
+			ConcurrentBag<TResult> concurrentBag = new();
 
 			await Task.WhenAll(Partitioner.Create(source)
 				.GetPartitions(degreeOfParallelism)

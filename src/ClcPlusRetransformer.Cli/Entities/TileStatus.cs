@@ -23,6 +23,6 @@ namespace ClcPlusRetransformer.Cli.Entities
 
 		Merged = TileStatus.MergedNorth | TileStatus.MergedEast | TileStatus.MergedSouth | TileStatus.MergedWest,
 
-		Exported
+		Exported,
 	}
 }

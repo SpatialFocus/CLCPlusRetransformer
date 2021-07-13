@@ -1,4 +1,4 @@
-﻿// <copyright file="ChainedProcessor{TGeometryType}.cs" company="Spatial Focus GmbH">
+﻿// <copyright file="ChainedProcessor.cs" company="Spatial Focus GmbH">
 // Copyright (c) Spatial Focus GmbH. All rights reserved.
 // </copyright>
 

@@ -1,4 +1,4 @@
-﻿// <copyright file="Program.MergeTilesAsync.cs" company="Spatial Focus GmbH">
+﻿// <copyright file="Program.MergeTiles.cs" company="Spatial Focus GmbH">
 // Copyright (c) Spatial Focus GmbH. All rights reserved.
 // </copyright>
 
@@ -107,7 +107,7 @@ namespace ClcPlusRetransformer.Cli
 					throw new InvalidOperationException();
 				}
 
-				TileGeometryBuffered? bufferedPolygon =
+				TileGeometryBuffered bufferedPolygon =
 					firstCandidatesBuffer.FirstOrDefault(x => x.Polygon.Contains(firstPolygon.Polygon.InteriorPoint));
 
 				if (bufferedPolygon == default)
@@ -152,7 +152,7 @@ namespace ClcPlusRetransformer.Cli
 
 				first.Geometries.Remove(firstPolygon);
 
-				TileGeometry mergedGeometry = new TileGeometry()
+				TileGeometry mergedGeometry = new()
 				{
 					Polygon = (Polygon)firstPolygon.Polygon,
 					RelatedGeometries = firstPolygon.RelatedGeometries.Union(polygonsToMerge.SelectMany(x => x.RelatedGeometries))
@@ -166,7 +166,7 @@ namespace ClcPlusRetransformer.Cli
 						mergedGeometry.Polygon = (Polygon)mergedGeometry.Polygon.Union(polygonToMerge);
 					}
 				}
-				catch (Exception e)
+				catch (Exception)
 				{
 					continue;
 				}
@@ -178,10 +178,9 @@ namespace ClcPlusRetransformer.Cli
 
 			foreach (TileGeometry mergedGeometry in mergedGeometries)
 			{
-				TileGeometry tileGeometry = new TileGeometry()
+				TileGeometry tileGeometry = new()
 				{
-					Polygon = mergedGeometry.Polygon,
-					RelatedGeometries = mergedGeometry.RelatedGeometries.ToList(),
+					Polygon = mergedGeometry.Polygon, RelatedGeometries = mergedGeometry.RelatedGeometries.ToList(),
 				};
 
 				mergedGeometry.RelatedGeometries.Add(mergedGeometry.Id);

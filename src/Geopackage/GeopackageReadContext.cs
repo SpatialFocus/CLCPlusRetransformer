@@ -1,14 +1,15 @@
-﻿// <copyright file="GeoPackageContext.cs" company="Spatial Focus GmbH">
+﻿// <copyright file="GeopackageReadContext.cs" company="Spatial Focus GmbH">
 // Copyright (c) Spatial Focus GmbH. All rights reserved.
 // </copyright>
 
-namespace ClcPlusRetransformer.Core
+namespace Geopackage
 {
+	using Geopackage.Entities;
 	using Microsoft.EntityFrameworkCore;
 
-	public class GeoPackageContext : DbContext
+	public class GeopackageReadContext : GeopackageContext
 	{
-		public GeoPackageContext(DbContextOptions options) : base(options)
+		public GeopackageReadContext(DbContextOptions<GeopackageContext> options) : base(options)
 		{
 		}
 
@@ -17,7 +18,6 @@ namespace ClcPlusRetransformer.Core
 			base.OnModelCreating(modelBuilder);
 
 			modelBuilder.Entity<FeatureRow>().HasNoKey();
-			modelBuilder.Entity<GeometryColumn>().HasNoKey();
 		}
 	}
 }

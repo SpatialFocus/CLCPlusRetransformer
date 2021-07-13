@@ -12,6 +12,14 @@ namespace ClcPlusRetransformer.Core.Processors.Extension
 
 	public static partial class ProcessorExtension
 	{
+		public static IEnumerable<LineString> LineStrings(ICollection<LineString> geometries, PrecisionModel precisionModel)
+		{
+			// TODO: Do we need to create a MultiLineString?
+			MultiLineString multiLineString = new(geometries.ToArray());
+
+			return new GeometryNoder(precisionModel).Node(multiLineString.Geometries);
+		}
+
 		public static IProcessor<LineString> Node(this IProcessor<LineString> container, PrecisionModel precisionModel)
 		{
 			if (container == null)
@@ -19,14 +27,7 @@ namespace ClcPlusRetransformer.Core.Processors.Extension
 				throw new ArgumentNullException(nameof(container));
 			}
 
-			return container.Chain("Node", (geometries) => ProcessorExtension.LineStrings(geometries, precisionModel).ToList());
-		}
-
-		public static IEnumerable<LineString> LineStrings(ICollection<LineString> geometries, PrecisionModel precisionModel)
-		{
-			// TODO: Do we need to create a MultiLineString?
-			MultiLineString multiLineString = new MultiLineString(geometries.ToArray());
-			return new GeometryNoder(precisionModel).Node(multiLineString.Geometries);
+			return container.Chain("Node", geometries => ProcessorExtension.LineStrings(geometries, precisionModel).ToList());
 		}
 	}
 }

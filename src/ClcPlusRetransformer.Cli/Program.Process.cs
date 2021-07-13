@@ -21,10 +21,11 @@ namespace ClcPlusRetransformer.Cli
 
 	public partial class Program
 	{
-		private static readonly int bufferDistance = 1000;
+		// TODO: Configuration variable
+		private const int BufferDistance = 1000;
 
 		public static async Task<IProcessor<Polygon>> ProcessShapesAsync(IServiceProvider provider, IConfigurationRoot config,
-			PrecisionModel precisionModel, ILogger<Program> logger, CancellationToken cancellationToken = default)
+			PrecisionModel precisionModel, ILogger<Program> logger)
 		{
 			logger.LogInformation("Processing shapes");
 
@@ -49,7 +50,7 @@ namespace ClcPlusRetransformer.Cli
 
 					border = (Polygon)new Envelope(new Coordinate(x1, y1), new Coordinate(x2, y2)).ToGeometry();
 					Envelope bufferedEnvelope = border.EnvelopeInternal.Copy();
-					bufferedEnvelope.ExpandBy(Program.bufferDistance);
+					bufferedEnvelope.ExpandBy(Program.BufferDistance);
 
 					aoi = bufferedEnvelope.ToGeometry();
 				}
@@ -109,7 +110,7 @@ namespace ClcPlusRetransformer.Cli
 
 			Source source = await spatialContext.Sources.SingleAsync(x => x.Name == configuration["SourceName"], cancellationToken);
 
-			Tile tile = new Tile
+			Tile tile = new()
 			{
 				EastOfOrigin = (int)tileEnvelope.MinX,
 				NorthOfOrigin = (int)tileEnvelope.MinY,
@@ -122,9 +123,8 @@ namespace ClcPlusRetransformer.Cli
 			await spatialContext.Tiles.AddAsync(tile, cancellationToken);
 			await spatialContext.SaveChangesAsync(cancellationToken);
 
-			// TODO: Configuration variable
 			Envelope tileEnvelopeBuffered = tileEnvelope.Copy();
-			tileEnvelopeBuffered.ExpandBy(Program.bufferDistance);
+			tileEnvelopeBuffered.ExpandBy(Program.BufferDistance);
 
 			IProcessor<LineString> baselineProcessor = provider.FromGeometries("baseline",
 				spatialContext.Set<Baseline>()
@@ -162,7 +162,6 @@ namespace ClcPlusRetransformer.Cli
 			}
 
 			IProcessor<Polygon> cleanedAndClippedToAoi = eliminatePolygons.Clip(tileEnvelope.ToGeometry());
-			////cleanedAndClippedToAoi.Execute().Save(@"C:\temp\geoville\RT_new_DP_and_smooth_half.shp", precisionModel);
 
 			tile.Locked = false;
 			tile.TileStatus = TileStatus.Processed;
@@ -188,16 +187,16 @@ namespace ClcPlusRetransformer.Cli
 			IProcessor<LineString> hardboneProcessor, IProcessor<Polygon> backboneProcessor, Envelope tileEnvelopeBuffered,
 			IServiceProvider provider, PrecisionModel precisionModel, Polygon envelope = null)
 		{
-			Task task1 = Task.Run(() => baselineProcessor.Execute());
-			Task task2 = Task.Run(() => hardboneProcessor.Execute());
-			Task task3 = Task.Run(() => backboneProcessor.Execute());
+			Task task1 = Task.Run(baselineProcessor.Execute);
+			Task task2 = Task.Run(hardboneProcessor.Execute);
+			Task task3 = Task.Run(backboneProcessor.Execute);
 
 			await Task.WhenAll(task1, task2, task3);
 
 			IProcessor<LineString> hardboneProcessorLines = hardboneProcessor.Dissolve();
 			IProcessor<LineString> backboneProcessorLines = backboneProcessor.PolygonsToLines().Dissolve();
 
-			IProcessor<LineString> difference = backboneProcessorLines
+			IProcessor<LineString> differenceProcessor = backboneProcessorLines
 				.Difference(hardboneProcessorLines.Execute(), provider.GetRequiredService<ILogger<Processor>>())
 				.Union(provider.GetRequiredService<ILogger<Processor>>())
 				.Dissolve();
@@ -207,20 +206,12 @@ namespace ClcPlusRetransformer.Cli
 				return null;
 			}
 
-			////IProcessor<LineString> difference = provider.LoadFromFile<LineString>(@"C:\temp\geoville\difference.shp", precisionModel);
-			////difference.Execute().Save(@"C:\temp\geoville\difference.shp", precisionModel);
+			IProcessor<LineString> mergedProcessor = differenceProcessor.Simplify()
+				.Smooth()
+				.SnapTo(baselineProcessor.Execute())
+				.Merge(baselineProcessor.Execute());
 
-			IProcessor<LineString> simplified = difference.Simplify();
-			////simplified.Execute().Save(@"C:\temp\geoville3\simplified.shp", precisionModel);
-
-			IProcessor<LineString> smoothed = simplified.Smooth();
-			////smoothed.Execute().Save(@"C:\temp\geoville3\smoothed.shp", precisionModel);
-
-			IProcessor<LineString> smoothedAndSnapped = smoothed.SnapTo(baselineProcessor.Execute());
-
-			IProcessor<LineString> processor = smoothedAndSnapped.Merge(baselineProcessor.Execute());
-
-			Envelope geometriesEnvelope = new GeometryCollection(processor.Execute().Cast<Geometry>().ToArray()).EnvelopeInternal;
+			Envelope geometriesEnvelope = new GeometryCollection(mergedProcessor.Execute().Cast<Geometry>().ToArray()).EnvelopeInternal;
 
 			Envelope minimumEnvelope = geometriesEnvelope;
 
@@ -232,8 +223,10 @@ namespace ClcPlusRetransformer.Cli
 					Math.Min(geometriesEnvelope.MaxY, tileEnvelopeBuffered.MaxY));
 			}
 
-			IProcessor<Polygon> polygonized = processor
-				.Merge(provider.FromGeometries("tileEnvelope", envelope ?? (Polygon)minimumEnvelope.ToGeometry()).PolygonsToLines().Execute())
+			IProcessor<Polygon> polygonized = mergedProcessor
+				.Merge(provider.FromGeometries("tileEnvelope", envelope ?? (Polygon)minimumEnvelope.ToGeometry())
+					.PolygonsToLines()
+					.Execute())
 				.Node(precisionModel)
 				.Union(provider.GetRequiredService<ILogger<Processor>>())
 				.Polygonize();

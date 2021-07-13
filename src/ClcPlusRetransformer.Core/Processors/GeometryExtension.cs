@@ -8,6 +8,9 @@ namespace ClcPlusRetransformer.Core.Processors
 	using System.Collections.Generic;
 	using System.IO;
 	using System.Linq;
+	using Geopackage;
+	using Geopackage.Entities;
+	using Microsoft.EntityFrameworkCore;
 	using NetTopologySuite.Features;
 	using NetTopologySuite.Geometries;
 	using NetTopologySuite.IO;
@@ -98,24 +101,51 @@ namespace ClcPlusRetransformer.Core.Processors
 			}
 
 			int i = 0;
-			List<IFeature> features = geometries.Select(x => (IFeature)new Feature(x,
-					new AttributesTable(new Dictionary<string, object>() { { "Id", ++i }, { "Length", x.Length }, { "Area", x.Area } })))
-				.ToList();
 
-			DbaseFileHeader fileHeader = new DbaseFileHeader();
-			fileHeader.AddColumn("Id", 'N', 18, 0);
-			fileHeader.AddColumn("Length", 'N', 18, 11);
-			fileHeader.AddColumn("Area", 'N', 18, 11);
-			fileHeader.NumRecords = features.Count;
-
-			ShapefileDataWriter shapefileDataWriter =
-				new ShapefileDataWriter(fileName, new GeometryFactory(precisionModel)) { Header = fileHeader, };
-
-			shapefileDataWriter.Write(features);
-
-			if (projectionInfo != null)
+			if (fileName.EndsWith(".shp"))
 			{
-				File.WriteAllText(Path.ChangeExtension(fileName, "prj"), projectionInfo);
+				List<IFeature> features = geometries.Select(x => (IFeature)new Feature(x,
+						new AttributesTable(new Dictionary<string, object>()
+							{
+								{ "Id", ++i }, { "Length", x.Length }, { "Area", x.Area },
+							})))
+					.ToList();
+
+				DbaseFileHeader fileHeader = new();
+				fileHeader.AddColumn("Id", 'N', 18, 0);
+				fileHeader.AddColumn("Length", 'N', 18, 11);
+				fileHeader.AddColumn("Area", 'N', 18, 11);
+				fileHeader.NumRecords = features.Count;
+
+				ShapefileDataWriter shapefileDataWriter = new(fileName, new GeometryFactory(precisionModel)) { Header = fileHeader, };
+
+				shapefileDataWriter.Write(features);
+
+				if (projectionInfo != null)
+				{
+					File.WriteAllText(Path.ChangeExtension(fileName, "prj"), projectionInfo);
+				}
+			}
+			else
+			{
+				GeopackageWriteContext dbContext =
+					new(new DbContextOptionsBuilder<GeopackageContext>().UseSqlite($"Data Source={fileName}").Options);
+
+				dbContext.Database.EnsureCreated();
+				GeoPackageGeoWriter writer = new();
+
+				List<Output> outputs = geometries.Select(x => new Output
+					{
+						Geom = writer.Write(x),
+						Fid = ++i,
+						Id = i,
+						Area = x.Area,
+						Length = x.Length,
+					})
+					.ToList();
+				dbContext.Outputs.AddRange(outputs);
+
+				dbContext.SaveChanges();
 			}
 		}
 
@@ -138,7 +168,7 @@ namespace ClcPlusRetransformer.Core.Processors
 				}
 			}
 
-			using ShapefileWriter writer = new ShapefileWriter(fileName, typeof(TGeometryType).ToShapeGeometryType());
+			using ShapefileWriter writer = new(fileName, typeof(TGeometryType).ToShapeGeometryType());
 
 			writer.Write(geometry);
 
