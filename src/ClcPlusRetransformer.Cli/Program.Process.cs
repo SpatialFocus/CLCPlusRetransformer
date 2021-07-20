@@ -40,10 +40,10 @@ namespace ClcPlusRetransformer.Cli
 			Geometry border = null;
 			IConfigurationSection aoiSection = config.GetSection("Aoi");
 
+			Geometry aoi = null;
+
 			if (aoiSection.Exists())
 			{
-				Geometry aoi;
-
 				if (aoiSection.GetChildren().Count() > 1)
 				{
 					(double x1, double y1, double x2, double y2) = aoiSection.Get<double[]>();
@@ -56,11 +56,11 @@ namespace ClcPlusRetransformer.Cli
 				}
 				else
 				{
-					aoi = provider.LoadFromFile<Polygon>(aoiSection.Get<Input>(), precisionModel).Execute().Single();
+					aoi = provider.LoadFromFile<MultiPolygon>(aoiSection.Get<Input>(), new PrecisionModel(100000)).Execute().Single();
 				}
 
-				baselineProcessor = provider.LoadFromFileAndClip<LineString>(baselineInput, precisionModel, aoi,
-					provider.GetRequiredService<ILogger<Processor>>());
+				baselineProcessor = provider.LoadFromFile<LineString>(baselineInput, precisionModel,
+					provider.GetRequiredService<ILogger<Processor>>()).Clip(aoi);
 				hardboneProcessor = provider
 					.LoadFromFile<LineString>(hardboneInput, precisionModel, provider.GetRequiredService<ILogger<Processor>>())
 					.Clip(aoi);
@@ -80,7 +80,7 @@ namespace ClcPlusRetransformer.Cli
 			}
 
 			IProcessor<Polygon> processedPolygons = await Program.ProcessInternalAsync(baselineProcessor, hardboneProcessor,
-				backboneProcessor, null, provider, precisionModel);
+				backboneProcessor, null, provider, precisionModel, aoi);
 
 			if (border != null)
 			{
@@ -185,7 +185,7 @@ namespace ClcPlusRetransformer.Cli
 
 		private static async Task<IProcessor<Polygon>> ProcessInternalAsync(IProcessor<LineString> baselineProcessor,
 			IProcessor<LineString> hardboneProcessor, IProcessor<Polygon> backboneProcessor, Envelope tileEnvelopeBuffered,
-			IServiceProvider provider, PrecisionModel precisionModel, Polygon envelope = null)
+			IServiceProvider provider, PrecisionModel precisionModel, Geometry envelope = null)
 		{
 			Task task1 = Task.Run(baselineProcessor.Execute);
 			Task task2 = Task.Run(hardboneProcessor.Execute);
@@ -224,7 +224,8 @@ namespace ClcPlusRetransformer.Cli
 			}
 
 			IProcessor<Polygon> polygonized = mergedProcessor
-				.Merge(provider.FromGeometries("tileEnvelope", envelope ?? (Polygon)minimumEnvelope.ToGeometry())
+				.Merge(provider.FromGeometries("tileEnvelope",
+						envelope?.FlattenAndThrow<Polygon>().ToArray() ?? new[] { (Polygon)minimumEnvelope.ToGeometry() })
 					.PolygonsToLines()
 					.Execute())
 				.Node(precisionModel)

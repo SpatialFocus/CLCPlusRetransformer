@@ -5,9 +5,13 @@
 namespace ClcPlusRetransformer.Core.Processors.Extension
 {
 	using System;
+	using System.Collections.Concurrent;
 	using System.Collections.Generic;
+	using System.Diagnostics;
 	using System.Linq;
+	using System.Threading.Tasks;
 	using NetTopologySuite.Geometries;
+	using NetTopologySuite.Geometries.Prepared;
 
 	public static partial class ProcessorExtension
 	{
@@ -25,7 +29,23 @@ namespace ClcPlusRetransformer.Core.Processors.Extension
 		public static IEnumerable<TGeometryType> Clip<TGeometryType>(ICollection<TGeometryType> geometries, Geometry otherGeometry)
 			where TGeometryType : Geometry
 		{
-			return geometries.AsParallel().SelectMany(geometry => geometry.Intersection(otherGeometry).FlattenAndIgnore<TGeometryType>());
+			ConcurrentBag<Geometry> geometriesProcessed = new ConcurrentBag<Geometry>();
+
+			IPreparedGeometry otherGeometryPrepared = new PreparedGeometryFactory().Create(otherGeometry);
+
+			Parallel.ForEach(geometries, geometry =>
+			{
+				if (otherGeometryPrepared.Covers(geometry))
+				{
+					geometriesProcessed.Add(geometry);
+				}
+				else if (otherGeometryPrepared.Intersects(geometry))
+				{
+					geometriesProcessed.Add(otherGeometry.Intersection(geometry));
+				}
+			});
+
+			return geometriesProcessed.ToArray().FlattenAndIgnore<TGeometryType>();
 		}
 	}
 }
