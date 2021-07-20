@@ -17,6 +17,9 @@ namespace ClcPlusRetransformer.Core.Processors
 
 	public static class GeometryExtension
 	{
+		public static IEnumerable<TGeometryType> FlattenAndIgnore<TGeometryType>(this ICollection<Geometry> geometries) =>
+			geometries.SelectMany(geometry => geometry.FlattenAndIgnore<TGeometryType>());
+
 		public static IEnumerable<TGeometryType> FlattenAndIgnore<TGeometryType>(this Geometry geometry)
 		{
 			if (geometry == null || geometry.IsEmpty)
@@ -48,6 +51,9 @@ namespace ClcPlusRetransformer.Core.Processors
 					yield break;
 			}
 		}
+
+		public static IEnumerable<TGeometryType> FlattenAndThrow<TGeometryType>(this ICollection<Geometry> geometries) =>
+			geometries.SelectMany(geometry => geometry.FlattenAndThrow<TGeometryType>());
 
 		public static IEnumerable<TGeometryType> FlattenAndThrow<TGeometryType>(this Geometry geometry)
 		{
