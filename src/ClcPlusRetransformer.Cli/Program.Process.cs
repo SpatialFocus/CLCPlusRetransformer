@@ -56,7 +56,7 @@ namespace ClcPlusRetransformer.Cli
 				}
 				else
 				{
-					aoi = new MultiPolygon(provider.LoadFromFile<Polygon>(aoiSection.Get<Input>(), precisionModel).Execute().ToArray());
+					aoi = new MultiPolygon(provider.LoadFromFile<Polygon>(aoiSection.Get<Input>(), precisionModel).Buffer(0.001).Execute().ToArray());
 				}
 
 				baselineProcessor = provider.LoadFromFile<LineString>(baselineInput, precisionModel,
