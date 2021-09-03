@@ -44,7 +44,7 @@ namespace ClcPlusRetransformer.Cli
 
 			if (aoiSection.Exists())
 			{
-				if (aoiSection.GetChildren().Count() > 1)
+				if (aoiSection.GetChildren().Count() == 4)
 				{
 					(double x1, double y1, double x2, double y2) = aoiSection.Get<double[]>();
 
