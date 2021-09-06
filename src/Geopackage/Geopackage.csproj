@@ -3,11 +3,40 @@
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
 		<nullable>enable</nullable>
+		<PackageId>SpatialFocus.GeoPackage</PackageId>
+		<Version>1.0.0-alpha1</Version>
+		<Title>An EF Core GeoPackage reader and writer</Title>
+		<Authors>Dresel,pergerch</Authors>
+		<Company>SpatialFocus</Company>
+		<Description>A package to read and write GeoPackage (GPKG) format using EF Core.</Description>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageTags>EF, Geo, Geopackage, GPKG</PackageTags>
+		<PackageOutputPath>$(SolutionDir)\.nuget</PackageOutputPath>
+		<PackageProjectUrl>https://github.com/SpatialFocus/CLCPlusRetransformer</PackageProjectUrl>
+		<PackageIcon>icon.png</PackageIcon>
+		<PackageIconUrl>https://raw.githubusercontent.com/SpatialFocus/CLCPlusRetransformer/master/docs/icon.png</PackageIconUrl>
+		<RepositoryType>git</RepositoryType>
+		<RepositoryUrl>https://github.com/SpatialFocus/CLCPlusRetransformer.git</RepositoryUrl>
+
+		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+
+		<IncludeSymbols>true</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<PublishRepositoryUrl>true</PublishRepositoryUrl>
 	</PropertyGroup>
 
-  <ItemGroup>
+	<PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true'">
+		<ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+	</PropertyGroup>
+
+	<ItemGroup>
     <PackageReference Include="EFCore.NamingConventions" Version="5.0.2" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="5.0.7" />
+		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0" PrivateAssets="All" />
   </ItemGroup>
+
+	<ItemGroup>
+		<None Include="..\..\docs\icon.png" Pack="true" PackagePath="\" Visible="false" />
+	</ItemGroup>
 
 </Project>
