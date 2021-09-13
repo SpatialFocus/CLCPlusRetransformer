@@ -138,6 +138,10 @@ namespace ClcPlusRetransformer.Core.Processors
 					new(new DbContextOptionsBuilder<GeopackageContext>().UseSqlite($"Data Source={fileName}").Options);
 
 				dbContext.Database.EnsureCreated();
+
+				dbContext.Database.ExecuteSqlRawAsync("PRAGMA application_id=1196444487;");
+				dbContext.Database.ExecuteSqlRawAsync("PRAGMA user_version=10200;");
+
 				GeoPackageGeoWriter writer = new();
 
 				List<Output> outputs = geometries.Select(x => new Output
