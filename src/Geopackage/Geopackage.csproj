@@ -11,7 +11,7 @@
 		<Description>A package to read and write GeoPackage (GPKG) format using EF Core.</Description>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<PackageTags>EF, Geo, Geopackage, GPKG</PackageTags>
-		<PackageOutputPath>$(SolutionDir)\.nuget</PackageOutputPath>
+		<PackageOutputPath>$(ProjectDir)..\..\.nuget</PackageOutputPath>
 		<PackageProjectUrl>https://github.com/SpatialFocus/CLCPlusRetransformer</PackageProjectUrl>
 		<PackageIcon>icon.png</PackageIcon>
 		<PackageIconUrl>https://raw.githubusercontent.com/SpatialFocus/CLCPlusRetransformer/master/docs/icon.png</PackageIconUrl>

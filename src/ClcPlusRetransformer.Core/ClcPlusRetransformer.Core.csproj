@@ -10,7 +10,7 @@
 		<Description>A package with a number of useful geoprocessing tools.</Description>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<PackageTags>Geo, Geoprocessing, Tools</PackageTags>
-		<PackageOutputPath>$(SolutionDir)\.nuget</PackageOutputPath>
+		<PackageOutputPath>$(ProjectDir)..\..\.nuget</PackageOutputPath>
 		<PackageProjectUrl>https://github.com/SpatialFocus/CLCPlusRetransformer</PackageProjectUrl>
 		<PackageIcon>icon.png</PackageIcon>
 		<PackageIconUrl>https://raw.githubusercontent.com/SpatialFocus/CLCPlusRetransformer/master/docs/icon.png</PackageIconUrl>
