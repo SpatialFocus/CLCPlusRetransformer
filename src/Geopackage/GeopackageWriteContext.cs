@@ -9,9 +9,12 @@ namespace Geopackage
 
 	public class GeopackageWriteContext : GeopackageContext
 	{
-		public GeopackageWriteContext(DbContextOptions<GeopackageContext> options) : base(options)
+		public GeopackageWriteContext(DbContextOptions<GeopackageContext> options, string layerName) : base(options)
 		{
+			LayerName = layerName;
 		}
+
+		public string LayerName { get; }
 
 		public DbSet<Output> Outputs { get; set; } = null!;
 
@@ -23,7 +26,7 @@ namespace Geopackage
 
 			modelBuilder.Entity<Output>(e =>
 			{
-				e.ToTable("Output");
+				e.ToTable(LayerName);
 				e.HasKey(x => x.Fid);
 
 				// Would require .UseNetTopologySuite() in context
@@ -33,13 +36,13 @@ namespace Geopackage
 			modelBuilder.Entity<Content>()
 				.HasData(new Content
 				{
-					TableName = "Output", DataType = "features", Identifier = "Output", SrsId = 3035,
+					TableName = LayerName, DataType = "features", Identifier = LayerName, SrsId = 3035,
 				});
 
 			modelBuilder.Entity<GeometryColumn>()
 				.HasData(new GeometryColumn()
 				{
-					TableName = "Output", ColumnName = "geom", GeometryTypeName = "MULTIPOLYGON", SrsId = 3035,
+					TableName = LayerName, ColumnName = "geom", GeometryTypeName = "MULTIPOLYGON", SrsId = 3035,
 				});
 		}
 	}

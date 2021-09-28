@@ -88,7 +88,7 @@ namespace ClcPlusRetransformer.Core.Processors
 		}
 
 		public static void Save<TGeometryType>(this IEnumerable<TGeometryType> geometries, string fileName, PrecisionModel precisionModel,
-			string projectionInfo = null) where TGeometryType : Geometry
+			string projectionInfo = null, string layerName = null) where TGeometryType : Geometry
 		{
 			while (File.Exists(fileName))
 			{
@@ -135,13 +135,10 @@ namespace ClcPlusRetransformer.Core.Processors
 			else
 			{
 				GeopackageWriteContext dbContext =
-					new(new DbContextOptionsBuilder<GeopackageContext>().UseSqlite($"Data Source={fileName}").Options);
+					new(new DbContextOptionsBuilder<GeopackageContext>().UseSqlite($"Data Source={fileName}").Options,
+						layerName ?? "Output");
 
 				dbContext.Database.EnsureCreated();
-
-				dbContext.Database.ExecuteSqlRawAsync("PRAGMA application_id=1196444487;");
-				dbContext.Database.ExecuteSqlRawAsync("PRAGMA user_version=10200;");
-
 				GeoPackageGeoWriter writer = new();
 
 				List<Output> outputs = geometries.Select(x => new Output
