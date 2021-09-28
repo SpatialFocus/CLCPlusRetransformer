@@ -6,6 +6,7 @@ namespace Geopackage
 {
 	using Geopackage.Entities;
 	using Microsoft.EntityFrameworkCore;
+	using Microsoft.EntityFrameworkCore.Infrastructure;
 
 	public abstract class GeopackageContext : DbContext
 	{
@@ -15,7 +16,8 @@ namespace Geopackage
 
 		public DbSet<GeometryColumn> GeometryColumns { get; set; } = null!;
 
-		protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) => optionsBuilder.UseSnakeCaseNamingConvention();
+		protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) =>
+			optionsBuilder.UseSnakeCaseNamingConvention().ReplaceService<IModelCacheKeyFactory, DynamicModelCacheKeyFactory>();
 
 		protected override void OnModelCreating(ModelBuilder modelBuilder)
 		{

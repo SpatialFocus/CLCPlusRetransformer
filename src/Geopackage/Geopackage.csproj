@@ -4,7 +4,7 @@
     <TargetFramework>net5.0</TargetFramework>
 		<nullable>enable</nullable>
 		<PackageId>SpatialFocus.GeoPackage</PackageId>
-		<Version>1.0.0-alpha3</Version>
+		<Version>1.0.0-alpha4</Version>
 		<Title>An EF Core GeoPackage reader and writer</Title>
 		<Authors>Dresel,pergerch</Authors>
 		<Company>SpatialFocus</Company>
