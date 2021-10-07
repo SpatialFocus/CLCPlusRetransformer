@@ -139,6 +139,11 @@ namespace ClcPlusRetransformer.Core.Processors
 						layerName ?? "Output");
 
 				dbContext.Database.EnsureCreated();
+
+				dbContext.Database.ExecuteSqlRawAsync("PRAGMA application_id=1196444487;");
+				dbContext.Database.ExecuteSqlRawAsync("PRAGMA user_version=10200;");
+				dbContext.Database.ExecuteSqlRawAsync("PRAGMA journal_mode=MEMORY;");
+
 				GeoPackageGeoWriter writer = new();
 
 				List<Output> outputs = geometries.Select(x => new Output
