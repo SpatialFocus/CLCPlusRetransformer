@@ -209,7 +209,8 @@ namespace ClcPlusRetransformer.Cli
 			IProcessor<LineString> mergedProcessor = differenceProcessor.Simplify()
 				.Smooth()
 				.SnapTo(baselineProcessor.Execute())
-				.Merge(baselineProcessor.Execute());
+				.Merge(baselineProcessor.Execute())
+				.Node(precisionModel);
 
 			Envelope geometriesEnvelope = new GeometryCollection(mergedProcessor.Execute().Cast<Geometry>().ToArray()).EnvelopeInternal;
 
