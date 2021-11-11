@@ -56,18 +56,20 @@ namespace ClcPlusRetransformer.Cli
 				}
 				else
 				{
-					aoi = new MultiPolygon(provider.LoadFromFile<Polygon>(aoiSection.Get<Input>(), precisionModel).Buffer(0.001).Execute().ToArray());
+					aoi = new MultiPolygon(provider.LoadFromFile<Polygon>(aoiSection.Get<Input>(), precisionModel)
+						//.Buffer(0.001)
+						.Execute()
+						.ToArray());
 				}
 
-				baselineProcessor = provider.LoadFromFile<LineString>(baselineInput, precisionModel,
-					provider.GetRequiredService<ILogger<Processor>>()).Clip(aoi);
-				hardboneProcessor = provider
-					.LoadFromFile<LineString>(hardboneInput, precisionModel, provider.GetRequiredService<ILogger<Processor>>())
-					.Clip(aoi);
+				Geometry bufferedAoi = aoi.Buffer(0.001);
+				baselineProcessor = provider.LoadFromFileAndClip<LineString>(baselineInput, precisionModel, bufferedAoi,
+					provider.GetRequiredService<ILogger<Processor>>());
+				hardboneProcessor = provider.LoadFromFileAndClip<LineString>(hardboneInput, precisionModel, bufferedAoi,
+					provider.GetRequiredService<ILogger<Processor>>());
 				backboneProcessor = provider
-					.LoadFromFile<Polygon>(backboneInput, precisionModel, provider.GetRequiredService<ILogger<Processor>>())
-					.Buffer(0)
-					.Clip(aoi);
+					.LoadFromFileAndClip<Polygon>(backboneInput, precisionModel, bufferedAoi, provider.GetRequiredService<ILogger<Processor>>())
+					.Buffer(0);
 			}
 			else
 			{
@@ -79,8 +81,22 @@ namespace ClcPlusRetransformer.Cli
 					provider.GetRequiredService<ILogger<Processor>>());
 			}
 
+			IConfigurationSection eeaSection = config.GetSection("BorderEEA");
+
+			Geometry eeaBorder = null;
+
+			if (eeaSection.Exists())
+			{
+				eeaBorder = new MultiPolygon(provider
+					.LoadFromFile<Polygon>(eeaSection.Get<Input>(), precisionModel, provider.GetRequiredService<ILogger<Processor>>())
+					.Buffer(0)
+					.Clip(aoi)
+					.Execute()
+					.ToArray());
+			}
+
 			IProcessor<Polygon> processedPolygons = await Program.ProcessInternalAsync(baselineProcessor, hardboneProcessor,
-				backboneProcessor, null, provider, precisionModel, aoi);
+				backboneProcessor, null, provider, precisionModel, aoi, eeaBorder);
 
 			if (border != null)
 			{
@@ -185,7 +201,7 @@ namespace ClcPlusRetransformer.Cli
 
 		private static async Task<IProcessor<Polygon>> ProcessInternalAsync(IProcessor<LineString> baselineProcessor,
 			IProcessor<LineString> hardboneProcessor, IProcessor<Polygon> backboneProcessor, Envelope tileEnvelopeBuffered,
-			IServiceProvider provider, PrecisionModel precisionModel, Geometry envelope = null)
+			IServiceProvider provider, PrecisionModel precisionModel, Geometry envelope = null, Geometry eeaBorder = null)
 		{
 			Task task1 = Task.Run(baselineProcessor.Execute);
 			Task task2 = Task.Run(hardboneProcessor.Execute);
@@ -201,16 +217,24 @@ namespace ClcPlusRetransformer.Cli
 				.Union(provider.GetRequiredService<ILogger<Processor>>())
 				.Dissolve();
 
+			differenceProcessor.Execute().Save("data\\175\\tmp\\10_difference.shp", precisionModel);
+
 			if (hardboneProcessorLines.Execute().Count == 0)
 			{
 				return null;
 			}
 
-			IProcessor<LineString> mergedProcessor = differenceProcessor.Simplify()
+			IProcessor<LineString> snapped = differenceProcessor.Simplify()
 				.Smooth()
-				.SnapTo(baselineProcessor.Execute())
+				.SnapTo(baselineProcessor.Execute());
+
+			snapped.Execute().Save("data\\175\\tmp\\20_snapped.shp", precisionModel);
+
+			IProcessor<LineString> mergedProcessor = snapped
 				.Merge(baselineProcessor.Execute())
 				.Node(precisionModel);
+
+			mergedProcessor.Execute().Save("data\\175\\tmp\\30_merged_and_noded.shp", precisionModel);
 
 			Envelope geometriesEnvelope = new GeometryCollection(mergedProcessor.Execute().Cast<Geometry>().ToArray()).EnvelopeInternal;
 
@@ -224,18 +248,35 @@ namespace ClcPlusRetransformer.Cli
 					Math.Min(geometriesEnvelope.MaxY, tileEnvelopeBuffered.MaxY));
 			}
 
-			IProcessor<Polygon> polygonized = mergedProcessor
+			IProcessor<LineString> union = mergedProcessor
 				.Merge(provider.FromGeometries("tileEnvelope",
 						envelope?.FlattenAndThrow<Polygon>().ToArray() ?? new[] { (Polygon)minimumEnvelope.ToGeometry() })
 					.PolygonsToLines()
 					.Execute())
 				.Node(precisionModel)
-				.Union(provider.GetRequiredService<ILogger<Processor>>())
+				.Union(provider.GetRequiredService<ILogger<Processor>>());
+
+			union.Execute().Save("data\\175\\tmp\\35_union.shp", precisionModel);
+
+			IProcessor<Polygon> polygonized = union
 				.Polygonize();
 
-			return polygonized.EliminatePolygons(baselineProcessor.Execute(), provider.GetRequiredService<ILogger<Processor>>())
+			polygonized.Execute().Save("data\\175\\tmp\\40_polygonized.gpkg", precisionModel);
+
+			if (eeaBorder != null)
+			{
+				polygonized = polygonized.Clip(eeaBorder);
+				polygonized.Execute().Save("data\\175\\tmp\\50_polygonized_clippedEEA.gpkg", precisionModel);
+			}
+
+			IProcessor<Polygon> eliminated = polygonized
+				.EliminatePolygons(baselineProcessor.Execute(), provider.GetRequiredService<ILogger<Processor>>())
 				.EliminateMergeSmallPolygons(provider.GetRequiredService<ILogger<Processor>>())
 				.EliminatePolygons(Array.Empty<LineString>(), provider.GetRequiredService<ILogger<Processor>>());
+
+			//eliminated.Execute().Save("data\\175\\174\\60_eliminated.gpkg", precisionModel);
+
+			return eliminated;
 		}
 	}
 }

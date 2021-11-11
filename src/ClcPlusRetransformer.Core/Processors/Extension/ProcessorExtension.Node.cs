@@ -27,7 +27,7 @@ namespace ClcPlusRetransformer.Core.Processors.Extension
 				throw new ArgumentNullException(nameof(container));
 			}
 
-			return container.Chain("Node", geometries => ProcessorExtension.LineStrings(geometries, precisionModel).ToList());
+			return container.Chain("Node", geometries => ProcessorExtension.LineStrings(geometries, new PrecisionModel(100_000)).ToList());
 		}
 	}
 }
