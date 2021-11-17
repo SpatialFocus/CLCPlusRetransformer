@@ -88,7 +88,7 @@ namespace ClcPlusRetransformer.Core.Processors
 		}
 
 		public static void Save<TGeometryType>(this IEnumerable<TGeometryType> geometries, string fileName, PrecisionModel precisionModel,
-			string projectionInfo = null, string layerName = null) where TGeometryType : Geometry
+			string projectionInfo = null, string layerName = null, string puName = null) where TGeometryType : Geometry
 		{
 			while (File.Exists(fileName))
 			{
@@ -112,15 +112,16 @@ namespace ClcPlusRetransformer.Core.Processors
 			{
 				List<IFeature> features = geometries.Select(x => (IFeature)new Feature(x,
 						new AttributesTable(new Dictionary<string, object>()
-							{
-								{ "Id", ++i }, { "Length", x.Length }, { "Area", x.Area },
-							})))
+						{
+							{ "Id", ++i }, { "Length", x.Length }, { "Area", x.Area }, { "PU", puName ?? string.Empty },
+						})))
 					.ToList();
 
 				DbaseFileHeader fileHeader = new();
 				fileHeader.AddColumn("Id", 'N', 18, 0);
 				fileHeader.AddColumn("Length", 'N', 18, 11);
 				fileHeader.AddColumn("Area", 'N', 18, 11);
+				fileHeader.AddColumn("PU", 'C', 20, 0);
 				fileHeader.NumRecords = features.Count;
 
 				ShapefileDataWriter shapefileDataWriter = new(fileName, new GeometryFactory(precisionModel)) { Header = fileHeader, };
@@ -153,6 +154,7 @@ namespace ClcPlusRetransformer.Core.Processors
 						Id = i,
 						Area = x.Area,
 						Length = x.Length,
+						PU = puName,
 					})
 					.ToList();
 				dbContext.Outputs.AddRange(outputs);

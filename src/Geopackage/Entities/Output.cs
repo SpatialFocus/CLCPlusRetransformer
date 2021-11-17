@@ -15,5 +15,7 @@ namespace Geopackage.Entities
 		public int Id { get; set; }
 
 		public double Length { get; set; }
+
+		public string? PU { get; set; }
 	}
 }
