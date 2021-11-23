@@ -227,24 +227,22 @@ namespace ClcPlusRetransformer.Cli
 				.Merge(baselineProcessor.Execute())
 				.Node();
 
-			Envelope geometriesEnvelope = new GeometryCollection(mergedProcessor.Execute().Cast<Geometry>().ToArray()).EnvelopeInternal;
-
-			Envelope minimumEnvelope = geometriesEnvelope;
-
-			if (tileEnvelopeBuffered != null)
-			{
-				minimumEnvelope = new Envelope(Math.Max(geometriesEnvelope.MinX, tileEnvelopeBuffered.MinX),
-					Math.Min(geometriesEnvelope.MaxX, tileEnvelopeBuffered.MaxX),
-					Math.Max(geometriesEnvelope.MinY, tileEnvelopeBuffered.MinY),
-					Math.Min(geometriesEnvelope.MaxY, tileEnvelopeBuffered.MaxY));
-			}
+			////Envelope geometriesEnvelope = new GeometryCollection(mergedProcessor.Execute().Cast<Geometry>().ToArray()).EnvelopeInternal;
+			////Envelope minimumEnvelope = geometriesEnvelope;
+			////if (tileEnvelopeBuffered != null)
+			////{
+			////	minimumEnvelope = new Envelope(Math.Max(geometriesEnvelope.MinX, tileEnvelopeBuffered.MinX),
+			////		Math.Min(geometriesEnvelope.MaxX, tileEnvelopeBuffered.MaxX),
+			////		Math.Max(geometriesEnvelope.MinY, tileEnvelopeBuffered.MinY),
+			////		Math.Min(geometriesEnvelope.MaxY, tileEnvelopeBuffered.MaxY));
+			////}
 
 			IProcessor<Polygon> polygonized = mergedProcessor
-				.Merge(provider.FromGeometries("tileEnvelope",
-						envelope?.FlattenAndThrow<Polygon>().ToArray() ?? new[] { (Polygon)minimumEnvelope.ToGeometry() })
-					.PolygonsToLines()
-					.Execute())
-				.Node()
+				////.Merge(provider.FromGeometries("tileEnvelope",
+				////		envelope?.FlattenAndThrow<Polygon>().ToArray() ?? new[] { (Polygon)minimumEnvelope.ToGeometry() })
+				////	.PolygonsToLines()
+				////	.Execute())
+				////.Node()
 				.Union(provider.GetRequiredService<ILogger<Processor>>())
 				.Polygonize();
 
