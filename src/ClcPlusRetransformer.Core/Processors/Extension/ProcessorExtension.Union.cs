@@ -24,14 +24,14 @@ namespace ClcPlusRetransformer.Core.Processors.Extension
 				throw new ArgumentNullException(nameof(container));
 			}
 
-			return container.Chain("Union", (geometries) => ProcessorExtension.Union(geometries, onProgress: progress =>
+			return container.Chain("Union", (geometries) => ProcessorExtension.Union(geometries, logger, onProgress: progress =>
 				{
 					logger?.LogDebug("{ProcessorName} [{DataName}] progress: {Progress:P}", "Union", container.DataName, progress);
 				})
 				.ToList());
 		}
 
-		public static IEnumerable<LineString> Union(ICollection<LineString> geometries, int numberOfSplits = 8,
+		public static IEnumerable<LineString> Union(ICollection<LineString> geometries, ILogger<Processor> logger, int numberOfSplits = 8,
 			Action<double> onProgress = null)
 		{
 			Envelope envelopeGlobal = new Envelope();
@@ -70,7 +70,7 @@ namespace ClcPlusRetransformer.Core.Processors.Extension
 			Parallel.ForEach(envelopesLocal, envelope =>
 			{
 				foreach (LineString lineString in new MultiLineString(sourceLineStrings[envelope].ToArray()).Union()
-					.FlattenAndThrow<LineString>())
+							.FlattenAndThrow<LineString>())
 				{
 					if (envelope.Contains(lineString))
 					{
@@ -115,11 +115,20 @@ namespace ClcPlusRetransformer.Core.Processors.Extension
 			HashSet<LineString> resultsExceptRemaining = new HashSet<LineString>(results);
 			resultsExceptRemaining.ExceptWith(geometriesRemainingWithAdditional);
 
-			Geometry resultsRemaining = new GeometryCollection(geometriesRemainingWithAdditional.Cast<Geometry>().ToArray()).Union();
+			try
+			{
+				Geometry resultsRemaining = new GeometryCollection(geometriesRemainingWithAdditional.Cast<Geometry>().ToArray()).Union();
 
-			onProgress?.Invoke(1);
+				onProgress?.Invoke(1);
 
-			return resultsExceptRemaining.Union(resultsRemaining.FlattenAndIgnore<LineString>());
+				return resultsExceptRemaining.Union(resultsRemaining.FlattenAndIgnore<LineString>());
+			}
+			catch (TopologyException exception)
+			{
+				logger?.LogError("Exception of type {ExceptionType} at {Coordinate}: {Message}", nameof(TopologyException),
+					exception.Coordinate, exception.Message);
+				throw;
+			}
 		}
 
 		public static IProcessor<LineString> UnionSimple(this IProcessor<LineString> container)

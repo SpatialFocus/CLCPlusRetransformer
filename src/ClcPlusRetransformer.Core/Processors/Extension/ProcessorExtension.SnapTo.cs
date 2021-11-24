@@ -14,17 +14,20 @@ namespace ClcPlusRetransformer.Core.Processors.Extension
 
 	public static partial class ProcessorExtension
 	{
-		public static IProcessor<LineString> SnapTo(this IProcessor<LineString> source, ICollection<LineString> targetLineStrings)
+		public static IProcessor<LineString> SnapTo(this IProcessor<LineString> source, ICollection<LineString> targetLineStrings,
+			PrecisionModel precisionModel)
 		{
 			if (source == null)
 			{
 				throw new ArgumentNullException(nameof(source));
 			}
 
-			return source.Chain<LineString>("SnapTo", (geometries) => ProcessorExtension.SnapTo(geometries, targetLineStrings).ToList());
+			return source.Chain<LineString>("SnapTo",
+				(geometries) => ProcessorExtension.SnapTo(geometries, targetLineStrings, precisionModel).ToList());
 		}
 
-		public static IEnumerable<LineString> SnapTo(ICollection<LineString> lineStrings, ICollection<LineString> targetLineStrings)
+		public static IEnumerable<LineString> SnapTo(ICollection<LineString> lineStrings, ICollection<LineString> targetLineStrings,
+			PrecisionModel precisionModel)
 		{
 			lineStrings = lineStrings.Select(x => x.Copy()).Cast<LineString>().ToList();
 			STRtree<Point> tree = new STRtree<Point>();
@@ -41,8 +44,8 @@ namespace ClcPlusRetransformer.Core.Processors.Extension
 
 			Parallel.ForEach(lineStrings, (lineString) =>
 			{
-				Coordinate startCoordinate =
-					ProcessorExtension.FindNearestVertexOrPoint(lineString.StartPoint, lineString.GetPointN(1), tree, pointItemDistance);
+				Coordinate startCoordinate = ProcessorExtension.FindNearestVertexOrPoint(lineString.StartPoint, lineString.GetPointN(1),
+					tree, pointItemDistance, precisionModel);
 
 				if (startCoordinate != null)
 				{
@@ -50,7 +53,7 @@ namespace ClcPlusRetransformer.Core.Processors.Extension
 				}
 
 				Coordinate endCoordinate = ProcessorExtension.FindNearestVertexOrPoint(lineString.EndPoint,
-					lineString.GetPointN(lineString.NumPoints - 2), tree, pointItemDistance);
+					lineString.GetPointN(lineString.NumPoints - 2), tree, pointItemDistance, precisionModel);
 
 				if (endCoordinate != null)
 				{
@@ -62,7 +65,7 @@ namespace ClcPlusRetransformer.Core.Processors.Extension
 		}
 
 		private static Coordinate FindNearestVertexOrPoint(Point point, Point point2, STRtree<Point> tree,
-			PointItemDistance pointItemDistance)
+			PointItemDistance pointItemDistance, PrecisionModel precisionModel)
 		{
 			Envelope envelope = new Envelope(point.Coordinate);
 			envelope.ExpandBy(17);
@@ -89,7 +92,12 @@ namespace ClcPlusRetransformer.Core.Processors.Extension
 					.OrderBy(distanceOp => distanceOp.Distance())
 					.First();
 
-				return distanceOperation.NearestPoints()[1];
+				Coordinate nearestPoint = distanceOperation.NearestPoints()[1];
+
+				// Round the coordinate to the nearest Grid coordinate
+				precisionModel.MakePrecise(nearestPoint);
+
+				return nearestPoint;
 			}
 
 			return null;

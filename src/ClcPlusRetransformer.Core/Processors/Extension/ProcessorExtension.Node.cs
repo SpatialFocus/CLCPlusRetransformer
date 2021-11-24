@@ -20,14 +20,14 @@ namespace ClcPlusRetransformer.Core.Processors.Extension
 			return new GeometryNoder(precisionModel).Node(multiLineString.Geometries);
 		}
 
-		public static IProcessor<LineString> Node(this IProcessor<LineString> container)
+		public static IProcessor<LineString> Node(this IProcessor<LineString> container, PrecisionModel precisionModel)
 		{
 			if (container == null)
 			{
 				throw new ArgumentNullException(nameof(container));
 			}
 
-			return container.Chain("Node", geometries => ProcessorExtension.LineStrings(geometries, new PrecisionModel(100_000)).ToList());
+			return container.Chain("Node", geometries => ProcessorExtension.LineStrings(geometries, precisionModel).ToList());
 		}
 	}
 }

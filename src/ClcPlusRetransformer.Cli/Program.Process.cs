@@ -5,6 +5,8 @@
 namespace ClcPlusRetransformer.Cli
 {
 	using System;
+	using System.Collections.Generic;
+	using System.Globalization;
 	using System.IO;
 	using System.Linq;
 	using System.Threading;
@@ -57,14 +59,13 @@ namespace ClcPlusRetransformer.Cli
 				}
 				else
 				{
-					aoi = new MultiPolygon(provider.LoadFromFile<Polygon>(aoiSection.Get<Input>(), precisionModel)
-						.Execute()
-						.ToArray());
+					aoi = new MultiPolygon(provider.LoadFromFile<Polygon>(aoiSection.Get<Input>(), precisionModel).Execute().ToArray());
 				}
 
 				Geometry bufferedAoi = aoi.Buffer(0.001);
 				baselineProcessor = provider.LoadFromFile<LineString>(baselineInput, precisionModel,
-					provider.GetRequiredService<ILogger<Processor>>()).Clip(bufferedAoi);
+						provider.GetRequiredService<ILogger<Processor>>())
+					.Clip(bufferedAoi);
 				hardboneProcessor = provider
 					.LoadFromFile<LineString>(hardboneInput, precisionModel, provider.GetRequiredService<ILogger<Processor>>())
 					.Clip(bufferedAoi);
@@ -74,6 +75,7 @@ namespace ClcPlusRetransformer.Cli
 					.Clip(bufferedAoi);
 
 				IConfigurationSection eeaSection = config.GetSection("BorderEEA");
+
 				if (eeaSection.Exists())
 				{
 					eeaBorder = new MultiPolygon(provider
@@ -95,7 +97,7 @@ namespace ClcPlusRetransformer.Cli
 			}
 
 			IProcessor<Polygon> processedPolygons = await Program.ProcessInternalAsync(baselineProcessor, hardboneProcessor,
-				backboneProcessor, null, provider, precisionModel, aoi, eeaBorder);
+				backboneProcessor, null, provider, precisionModel, logger, aoi, eeaBorder);
 
 			if (border != null)
 			{
@@ -198,15 +200,43 @@ namespace ClcPlusRetransformer.Cli
 			await spatialContext.SaveChangesAsync(cancellationToken);
 		}
 
+		private static int FindDecimalPlaces(ICollection<LineString> differences)
+		{
+			int num = 0;
+
+			foreach (LineString d in differences)
+			{
+				foreach (Coordinate c in d.Coordinates)
+				{
+					string sX = c.X.ToString(CultureInfo.InvariantCulture);
+					string sY = c.Y.ToString(CultureInfo.InvariantCulture);
+
+					int xDecimalPlaces = sX.Split('.').Count() > 1 ? sX.Split('.').ToList().ElementAt(1).Length : 0;
+					int yDecimalPlaces = sY.Split('.').Count() > 1 ? sY.Split('.').ToList().ElementAt(1).Length : 0;
+
+					if (xDecimalPlaces > 4 || yDecimalPlaces > 4)
+					{
+						num++;
+						break;
+					}
+				}
+			}
+
+			return num;
+		}
+
 		private static async Task<IProcessor<Polygon>> ProcessInternalAsync(IProcessor<LineString> baselineProcessor,
 			IProcessor<LineString> hardboneProcessor, IProcessor<Polygon> backboneProcessor, Envelope tileEnvelopeBuffered,
-			IServiceProvider provider, PrecisionModel precisionModel, Geometry envelope = null, Geometry eeaBorder = null)
+			IServiceProvider provider, PrecisionModel precisionModel, ILogger<Program> logger = null, Geometry envelope = null,
+			Geometry eeaBorder = null)
 		{
 			Task task1 = Task.Run(baselineProcessor.Execute);
 			Task task2 = Task.Run(hardboneProcessor.Execute);
 			Task task3 = Task.Run(backboneProcessor.Execute);
 
 			await Task.WhenAll(task1, task2, task3);
+			logger?.LogInformation("Too precise geometries in {ProcessorName}: {Progress}", "HB Baselines",
+				Program.FindDecimalPlaces(baselineProcessor.Execute()));
 
 			IProcessor<LineString> hardboneProcessorLines = hardboneProcessor.Dissolve();
 			IProcessor<LineString> backboneProcessorLines = backboneProcessor.PolygonsToLines().Dissolve();
@@ -215,36 +245,35 @@ namespace ClcPlusRetransformer.Cli
 				.Difference(hardboneProcessorLines.Execute(), provider.GetRequiredService<ILogger<Processor>>())
 				.Union(provider.GetRequiredService<ILogger<Processor>>())
 				.Dissolve();
+			logger?.LogInformation("Too precise geometries after {ProcessorName}: {Progress}", "Dissolve",
+				Program.FindDecimalPlaces(differenceProcessor.Execute()));
 
 			if (hardboneProcessorLines.Execute().Count == 0)
 			{
 				return null;
 			}
 
-			IProcessor<LineString> mergedProcessor = differenceProcessor.Simplify()
-				.Smooth()
-				.SnapTo(baselineProcessor.Execute())
-				.Merge(baselineProcessor.Execute())
-				.Node();
+			IProcessor<LineString> simplify = differenceProcessor.Simplify();
+			logger?.LogInformation("Too precise geometries after {ProcessorName}: {Progress}", "Simplify",
+				Program.FindDecimalPlaces(simplify.Execute()));
 
-			////Envelope geometriesEnvelope = new GeometryCollection(mergedProcessor.Execute().Cast<Geometry>().ToArray()).EnvelopeInternal;
-			////Envelope minimumEnvelope = geometriesEnvelope;
-			////if (tileEnvelopeBuffered != null)
-			////{
-			////	minimumEnvelope = new Envelope(Math.Max(geometriesEnvelope.MinX, tileEnvelopeBuffered.MinX),
-			////		Math.Min(geometriesEnvelope.MaxX, tileEnvelopeBuffered.MaxX),
-			////		Math.Max(geometriesEnvelope.MinY, tileEnvelopeBuffered.MinY),
-			////		Math.Min(geometriesEnvelope.MaxY, tileEnvelopeBuffered.MaxY));
-			////}
+			IProcessor<LineString> smooth = simplify.Smooth();
+			logger?.LogInformation("Too precise geometries after {ProcessorName}: {Progress}", "Smooth",
+				Program.FindDecimalPlaces(smooth.Execute()));
 
-			IProcessor<Polygon> polygonized = mergedProcessor
-				////.Merge(provider.FromGeometries("tileEnvelope",
-				////		envelope?.FlattenAndThrow<Polygon>().ToArray() ?? new[] { (Polygon)minimumEnvelope.ToGeometry() })
-				////	.PolygonsToLines()
-				////	.Execute())
-				////.Node()
-				.Union(provider.GetRequiredService<ILogger<Processor>>())
-				.Polygonize();
+			IProcessor<LineString> snapTo = smooth.SnapTo(baselineProcessor.Execute(), precisionModel);
+			logger?.LogInformation("Too precise geometries after {ProcessorName}: {Progress}", "SnapTo",
+				Program.FindDecimalPlaces(snapTo.Execute()));
+
+			IProcessor<LineString> merged = snapTo.Merge(baselineProcessor.Execute());
+			logger?.LogInformation("Too precise geometries after {ProcessorName}: {Progress}", "Merge",
+				Program.FindDecimalPlaces(merged.Execute()));
+
+			IProcessor<LineString> union = merged.Node(precisionModel).Union(provider.GetRequiredService<ILogger<Processor>>());
+			logger?.LogInformation("Too precise geometries after {ProcessorName}: {Progress}", "Node/Union",
+				Program.FindDecimalPlaces(union.Execute()));
+
+			IProcessor<Polygon> polygonized = union.Polygonize();
 
 			if (eeaBorder != null)
 			{

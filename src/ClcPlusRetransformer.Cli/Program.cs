@@ -64,6 +64,7 @@ namespace ClcPlusRetransformer.Cli
 			// Save result to Shapefile / Geopackage
 			string exportFileName = config["ProcessedOutputFileName"];
 			resultProcessor.Execute().Save(exportFileName, precisionModel, puName: config["SourceName"]);
+			logger.LogInformation("Result saved under {ExportFileName}", exportFileName);
 
 			stopwatch.Stop();
 			logger.LogInformation("Workflow finished in {Time}ms", stopwatch.ElapsedMilliseconds);
