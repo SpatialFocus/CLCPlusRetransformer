@@ -5,6 +5,7 @@
 namespace ClcPlusRetransformer.Cli
 {
 	using System;
+	using System.Collections.Generic;
 	using System.Diagnostics;
 	using System.Threading.Tasks;
 	using ClcPlusRetransformer.Cli.Entities;
@@ -63,8 +64,11 @@ namespace ClcPlusRetransformer.Cli
 
 			// Save result to Shapefile / Geopackage
 			string exportFileName = config["ProcessedOutputFileName"];
-			resultProcessor.Execute().Save(exportFileName, precisionModel, puName: config["SourceName"]);
-			logger.LogInformation("Result saved under {ExportFileName}", exportFileName);
+			ICollection<Polygon> results = resultProcessor.Execute();
+
+			results.Save(exportFileName, precisionModel, puName: config["SourceName"]);
+			logger.LogInformation("Result [{DataName}] saved [{ExportFileName}]: {Count} geometries written", config["SourceName"],
+				exportFileName, results.Count);
 
 			stopwatch.Stop();
 			logger.LogInformation("Workflow finished in {Time}ms", stopwatch.ElapsedMilliseconds);

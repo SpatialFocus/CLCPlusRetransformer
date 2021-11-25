@@ -32,11 +32,14 @@ namespace ClcPlusRetransformer.Core
 			PrecisionModel precisionModel, ILogger<Processor> logger = null) where TGeometryType : Geometry
 		{
 			ProcessorFactory factory = serviceProvider.GetRequiredService<ProcessorFactory>();
-			return factory.CreateProcessor<TGeometryType>("Load from file", Path.GetFileNameWithoutExtension(input.FileName), () =>
+
+			string processorName = "Load from file";
+			string dataName = Path.GetFileNameWithoutExtension(input.FileName);
+			return factory.CreateProcessor<TGeometryType>(processorName, dataName, () =>
 			{
 				List<TGeometryType> geometries = ServiceProviderExtension.Read<TGeometryType>(input, precisionModel).ToList();
 
-				logger?.LogDebug("{ProcessorName} [{DataName}] {Count} geometries loaded", "Union", input.FileName, geometries.Count);
+				logger?.LogDebug("{ProcessorName} [{DataName}] {Count} geometries loaded", processorName, dataName, geometries.Count);
 
 				return geometries;
 			});
@@ -47,13 +50,15 @@ namespace ClcPlusRetransformer.Core
 		{
 			ProcessorFactory factory = serviceProvider.GetRequiredService<ProcessorFactory>();
 
-			return factory.CreateProcessor<TGeometryType>("Load from file and clip", Path.GetFileNameWithoutExtension(input.FileName), () =>
+			string processorName = "Load from file and clip";
+			string dataName = Path.GetFileNameWithoutExtension(input.FileName);
+			return factory.CreateProcessor<TGeometryType>(processorName, dataName, () =>
 			{
 				List<TGeometryType> geometries = ServiceProviderExtension
 					.ReadAndClip<TGeometryType>(input, precisionModel, otherGeometry)
 					.ToList();
 
-				logger?.LogDebug("{ProcessorName} [{DataName}] {Count} geometries loaded", "Union", input.FileName, geometries.Count);
+				logger?.LogDebug("{ProcessorName} [{DataName}] {Count} geometries loaded", processorName, dataName, geometries.Count);
 
 				return geometries;
 			});

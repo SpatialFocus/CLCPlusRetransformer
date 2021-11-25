@@ -5,8 +5,6 @@
 namespace ClcPlusRetransformer.Cli
 {
 	using System;
-	using System.Collections.Generic;
-	using System.Globalization;
 	using System.IO;
 	using System.Linq;
 	using System.Threading;
@@ -200,43 +198,18 @@ namespace ClcPlusRetransformer.Cli
 			await spatialContext.SaveChangesAsync(cancellationToken);
 		}
 
-		private static int FindDecimalPlaces(ICollection<LineString> differences)
-		{
-			int num = 0;
-
-			foreach (LineString d in differences)
-			{
-				foreach (Coordinate c in d.Coordinates)
-				{
-					string sX = c.X.ToString(CultureInfo.InvariantCulture);
-					string sY = c.Y.ToString(CultureInfo.InvariantCulture);
-
-					int xDecimalPlaces = sX.Split('.').Count() > 1 ? sX.Split('.').ToList().ElementAt(1).Length : 0;
-					int yDecimalPlaces = sY.Split('.').Count() > 1 ? sY.Split('.').ToList().ElementAt(1).Length : 0;
-
-					if (xDecimalPlaces > 4 || yDecimalPlaces > 4)
-					{
-						num++;
-						break;
-					}
-				}
-			}
-
-			return num;
-		}
-
 		private static async Task<IProcessor<Polygon>> ProcessInternalAsync(IProcessor<LineString> baselineProcessor,
 			IProcessor<LineString> hardboneProcessor, IProcessor<Polygon> backboneProcessor, Envelope tileEnvelopeBuffered,
 			IServiceProvider provider, PrecisionModel precisionModel, ILogger<Program> logger = null, Geometry envelope = null,
 			Geometry eeaBorder = null)
 		{
+			baselineProcessor = baselineProcessor.CountTooPrecise(precisionModel, provider.GetRequiredService<ILogger<Processor>>());
+
 			Task task1 = Task.Run(baselineProcessor.Execute);
 			Task task2 = Task.Run(hardboneProcessor.Execute);
 			Task task3 = Task.Run(backboneProcessor.Execute);
 
 			await Task.WhenAll(task1, task2, task3);
-			logger?.LogInformation("Too precise geometries in {ProcessorName}: {Progress}", "HB Baselines",
-				Program.FindDecimalPlaces(baselineProcessor.Execute()));
 
 			IProcessor<LineString> hardboneProcessorLines = hardboneProcessor.Dissolve();
 			IProcessor<LineString> backboneProcessorLines = backboneProcessor.PolygonsToLines().Dissolve();
@@ -244,36 +217,27 @@ namespace ClcPlusRetransformer.Cli
 			IProcessor<LineString> differenceProcessor = backboneProcessorLines
 				.Difference(hardboneProcessorLines.Execute(), provider.GetRequiredService<ILogger<Processor>>())
 				.Union(provider.GetRequiredService<ILogger<Processor>>())
-				.Dissolve();
-			logger?.LogInformation("Too precise geometries after {ProcessorName}: {Progress}", "Dissolve",
-				Program.FindDecimalPlaces(differenceProcessor.Execute()));
+				.Dissolve()
+				.CountTooPrecise(precisionModel, provider.GetRequiredService<ILogger<Processor>>());
 
 			if (hardboneProcessorLines.Execute().Count == 0)
 			{
 				return null;
 			}
 
-			IProcessor<LineString> simplify = differenceProcessor.Simplify();
-			logger?.LogInformation("Too precise geometries after {ProcessorName}: {Progress}", "Simplify",
-				Program.FindDecimalPlaces(simplify.Execute()));
+			IProcessor<LineString> merged = differenceProcessor.Simplify()
+				.CountTooPrecise(precisionModel, provider.GetRequiredService<ILogger<Processor>>())
+				.Smooth()
+				.CountTooPrecise(precisionModel, provider.GetRequiredService<ILogger<Processor>>())
+				.SnapTo(baselineProcessor.Execute(), precisionModel)
+				.CountTooPrecise(precisionModel, provider.GetRequiredService<ILogger<Processor>>())
+				.Merge(baselineProcessor.Execute())
+				.CountTooPrecise(precisionModel, provider.GetRequiredService<ILogger<Processor>>());
 
-			IProcessor<LineString> smooth = simplify.Smooth();
-			logger?.LogInformation("Too precise geometries after {ProcessorName}: {Progress}", "Smooth",
-				Program.FindDecimalPlaces(smooth.Execute()));
-
-			IProcessor<LineString> snapTo = smooth.SnapTo(baselineProcessor.Execute(), precisionModel);
-			logger?.LogInformation("Too precise geometries after {ProcessorName}: {Progress}", "SnapTo",
-				Program.FindDecimalPlaces(snapTo.Execute()));
-
-			IProcessor<LineString> merged = snapTo.Merge(baselineProcessor.Execute());
-			logger?.LogInformation("Too precise geometries after {ProcessorName}: {Progress}", "Merge",
-				Program.FindDecimalPlaces(merged.Execute()));
-
-			IProcessor<LineString> union = merged.Node(precisionModel).Union(provider.GetRequiredService<ILogger<Processor>>());
-			logger?.LogInformation("Too precise geometries after {ProcessorName}: {Progress}", "Node/Union",
-				Program.FindDecimalPlaces(union.Execute()));
-
-			IProcessor<Polygon> polygonized = union.Polygonize();
+			IProcessor<Polygon> polygonized = merged.Node(precisionModel)
+				.Union(provider.GetRequiredService<ILogger<Processor>>())
+				.CountTooPrecise(precisionModel, provider.GetRequiredService<ILogger<Processor>>())
+				.Polygonize();
 
 			if (eeaBorder != null)
 			{
