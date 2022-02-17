@@ -1,5 +1,12 @@
 # ClcPlusRetransformer
 
+[![Build and Create Release](https://github.com/SpatialFocus/CLCPlusRetransformer/actions/workflows/create-release.yml/badge.svg)](https://github.com/SpatialFocus/CLCPlusRetransformer/actions/workflows/create-release.yml)
+[![Publish NuGet Packages](https://github.com/SpatialFocus/CLCPlusRetransformer/actions/workflows/create-nuget.yml/badge.svg)](https://github.com/SpatialFocus/CLCPlusRetransformer/actions/workflows/create-nuget.yml)
+[![FOSSA Status](https://app.fossa.com/api/projects/custom%2B19685%2Fgithub.com%2FSpatialFocus%2FCLCPlusRetransformer.svg?type=shield)](https://app.fossa.com/projects/custom%2B19685%2Fgithub.com%2FSpatialFocus%2FCLCPlusRetransformer?ref=badge_shield)
+
+[![NuGet SpatialFocus.GeoPackage](https://img.shields.io/nuget/v/SpatialFocus.GeoPackage.svg?label=Nuget%20SpatialFocus.GeoPackage)](https://www.nuget.org/packages/SpatialFocus.GeoPackage/)
+[![NuGet SpatialFocus.GeoToolbox](https://img.shields.io/nuget/v/SpatialFocus.GeoToolbox.svg?label=Nuget%20SpatialFocus.GeoToolbox)](https://www.nuget.org/packages/SpatialFocus.GeoToolbox/)
+
 ```bash
 git tag -a v1.1 -m "Release 1.1 with xyz"
 git push origin <tag_name>
